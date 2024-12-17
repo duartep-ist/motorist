@@ -37,13 +37,12 @@ JSON object containing:
 
 JSON object containing:
 - `type`: `"AUTH_PROOF"`
-- `challenge`: BytesToBase64(256 random bits)
+- `mac`: BytesToBase64(MAC(challenge, user key))
 
 ### Authentication confirmation message (car → app)
 
 JSON object containing:
 - `type`: `"AUTH_CONFIRMATION"`
-- `valid`: BytesToBase64(256 random bits)
 
 ### Authentication failure message (car → app)
 
@@ -63,11 +62,6 @@ JSON object containing:
 JSON object containing:
 - `type`: `"USER_CONFIG_WRITE_REQUEST"`
 - `configuration`: the JSON object described in the scenario
-
-<!--
-- `configuration`: string containing the configuration JSON object
-- `mac`: BytesToBase64(HmacSHA256(StringToUTF8(`configuration`), key))
--->
 
 ### User configuration write confirmation message
 
