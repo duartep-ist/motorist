@@ -1,5 +1,6 @@
 package pt.ulisboa.tecnico.motorist.server;
 
+<<<<<<< HEAD
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
@@ -62,3 +63,59 @@ public class Main {
         startServer(5000);
 	}
 }
+
+/* Main do duarte, resultado do merge
+ * Quando fiz o merge não tive ver o que já tinhas feito e adaptar, por isso fiz esta
+ * monstruosidade, quando voltar a pegar nisto tento adaptar o que tu já fizeste.
+ * Deixei o que eu tinha feito para que poderem testar a comunicação entre duas VMs.
+ * Eu testei e está a funcionar, se vocês não conseguirem mandem msg.
+public class Main {
+	public static void main(String[] args) throws IOException {
+		try (ServerSocket serverSocket = new ServerSocket(5000)) {
+			System.out.println("Listening on port 5000.");
+			while (true) {
+				Socket clientSocket = serverSocket.accept();
+				System.out.println("Accepted connection from client.");
+
+				JSONStreamReader reader = null;
+				JSONStreamWriter writer = null;
+				try {
+					reader = new JSONStreamReader(clientSocket.getInputStream());
+					writer = new JSONStreamWriter(clientSocket.getOutputStream());
+				} catch (IOException err) {
+					continue;
+				}
+				while (true) {
+					try {
+						JSONObject receivedMessage = reader.read();
+						System.out.print("Received ");
+						System.out.println(receivedMessage.toString());
+						String type = receivedMessage.getString("type");
+						switch (type) {
+							case "echo":
+								JSONObject response = new JSONObject();
+								response.put("message", receivedMessage);
+								System.out.print("Sending ");
+								System.out.println(response.toString());
+								writer.write(response);
+								break;
+						
+							default:
+								System.out.println("Unrecognized message type \"" + type + "\".");
+								clientSocket.close();
+								break;
+						}
+					} catch (IOException err) {
+						System.out.println("Connection closed or errored out:");
+						System.out.println(err);
+						break;
+					} catch (JSONException err) {
+						System.out.println("Client sent a malformed message:");
+						System.out.println(err);
+						clientSocket.close();
+						break;
+					}
+				}
+			}
+		}
+		*/
