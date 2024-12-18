@@ -23,7 +23,7 @@ public class Main {
 				try {
 					reader = new JSONStreamReader(clientSocket.getInputStream());
 					writer = new JSONStreamWriter(clientSocket.getOutputStream());
-				} catch (IOException err) {
+				} catch (IOException e) {
 					continue;
 				}
 				while (true) {
@@ -46,13 +46,13 @@ public class Main {
 								clientSocket.close();
 								break;
 						}
-					} catch (IOException err) {
-						System.out.println("Connection closed or errored out:");
-						System.out.println(err);
+					} catch (IOException e) {
+						System.out.print("Connection closed or errored out: ");
+						System.out.println(e);
 						break;
-					} catch (JSONException err) {
-						System.out.println("Client sent a malformed message:");
-						System.out.println(err);
+					} catch (JSONException e) {
+						System.out.print("Client sent a malformed message: ");
+						System.out.println(e);
 						clientSocket.close();
 						break;
 					}
