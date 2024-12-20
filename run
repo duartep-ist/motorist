@@ -1,2 +1,5 @@
 #!/bin/sh
-mvn -q exec:java -Dexec.mainClass="pt.ulisboa.tecnico.motorist.$1.Main"
+# Usage: ./run program arg1 arg2 ...
+program_name="$1"
+shift
+mvn -q exec:java -Dexec.mainClass="pt.ulisboa.tecnico.motorist.$program_name.Main" -Dexec.args="$*"

@@ -5,15 +5,15 @@ import pt.ulisboa.tecnico.motorist.common.SecureDocument;
 public class Main {
 	// Usage example for testing:
 	// Help:
-	// mvn -q exec:java -Dexec.mainClass="pt.ulisboa.tecnico.motorist.common.SecureDocument" -Dexec.args="help"
+	// ./run secure_document help
 	// Generate Dummy key:
-	// mvn -q exec:java -Dexec.mainClass="pt.ulisboa.tecnico.motorist.common.SecureDocument" -Dexec.args="generate-key keyfile.key"
+	// ./run secure_document generate-key keyfile.key
 	// Protect:
-	// mvn -q exec:java -Dexec.mainClass="pt.ulisboa.tecnico.motorist.common.SecureDocument" -Dexec.args="protect example.json keyfile.key protected_example.dat"
+	// ./run secure_document protect example.json keyfile.key protected_example.dat
 	// Check:
-	// mvn -q exec:java -Dexec.mainClass="pt.ulisboa.tecnico.motorist.common.SecureDocument" -Dexec.args="check protected_example.dat keyfile.key"~
+	// ./run secure_document check protected_example.dat keyfile.key
 	// Unprotect:
-	// mvn -q exec:java -Dexec.mainClass="pt.ulisboa.tecnico.motorist.common.SecureDocument" -Dexec.args="unprotect protected_example.dat keyfile.key unprotected_example.json"
+	// ./run secure_document unprotect protected_example.dat keyfile.key unprotected_example.json
 	
 	/**
 	 * Command-line interface
