@@ -78,6 +78,10 @@
 								<mainClass>pt.ulisboa.tecnico.motorist.app.Main</mainClass>
 								<id>app</id>
 							</program>
+							<program>
+								<mainClass>pt.ulisboa.tecnico.motorist.secure_document.Main</mainClass>
+								<id>secure-document</id>
+							</program>
 						</programs>
 					</configuration>
 				</plugin>
