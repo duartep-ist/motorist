@@ -9,7 +9,8 @@ import java.util.Base64;
 
 import javax.crypto.Mac;
 import javax.crypto.SecretKey;
-import org.json.JSONObject;
+
+import com.google.gson.JsonObject;
 
 import pt.ulisboa.tecnico.motorist.common.JSONStreamReader;
 import pt.ulisboa.tecnico.motorist.common.JSONStreamWriter;
@@ -65,33 +66,33 @@ public class Main {
 			JSONStreamWriter writer = new JSONStreamWriter(socket.getOutputStream());
 
 			{
-				JSONObject authRequest = new JSONObject();
-				authRequest.put("type", "AUTH_REQUEST");
-				authRequest.put("id", userID);
-				authRequest.put("password", password);
+				JsonObject authRequest = new JsonObject();
+				authRequest.addProperty("type", "AUTH_REQUEST");
+				authRequest.addProperty("id", userID);
+				authRequest.addProperty("password", password);
 				writer.write(authRequest);
 			}
 			{
-				JSONObject authChallenge = reader.read();
-				if (authChallenge.getString(keyFilePath).equals("AUTH_CHALLENGE")) {
+				JsonObject authChallenge = reader.read();
+				if (authChallenge.get(keyFilePath).getAsString().equals("AUTH_CHALLENGE")) {
 					throw new Exception("Expected to receive an AUTH_CHALLENGE message.");
 				}
-				byte[] challenge = base64Decoder.decode(authChallenge.getString("challenge"));
+				byte[] challenge = base64Decoder.decode(authChallenge.get("challenge").getAsString());
 
 				Mac mac = Mac.getInstance("HmacSHA256");
 				mac.init(userKey);
 				byte[] macResult = mac.doFinal(challenge);
 
-				JSONObject authProof = new JSONObject();
-				authProof.put("type", "AUTH_PROOF");
-				authProof.put("mac", new String(base64Encoder.encode(macResult)));
+				JsonObject authProof = new JsonObject();
+				authProof.addProperty("type", "AUTH_PROOF");
+				authProof.addProperty("mac", new String(base64Encoder.encode(macResult)));
 				writer.write(authProof);
 			}
 			{
-				JSONObject authResponse = reader.read();
-				if (authResponse.getString(keyFilePath).equals("AUTH_FAILURE")) {
+				JsonObject authResponse = reader.read();
+				if (authResponse.get(keyFilePath).getAsString().equals("AUTH_FAILURE")) {
 					System.out.println("Wrong user ID or password.");
-				} else if (!authResponse.getString(keyFilePath).equals("AUTH_CONFIRMATION")) {
+				} else if (!authResponse.get(keyFilePath).getAsString().equals("AUTH_CONFIRMATION")) {
 					throw new Exception("Expected to receive an AUTH_CONFIRMATION or AUTH_FAILURE message.");
 				}
 			}

@@ -6,8 +6,8 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.UnsupportedEncodingException;
 
-import org.json.JSONException;
-import org.json.JSONObject;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 
 public class JSONStreamReader {
 	private BufferedReader bufferedReader;
@@ -22,7 +22,11 @@ public class JSONStreamReader {
 		this.bufferedReader = bufferedReader;
 	}
 
-	public JSONObject read() throws IOException, JSONException {
-		return new JSONObject(this.bufferedReader.readLine());
+	public JsonObject read() throws IOException {
+        String line = this.bufferedReader.readLine();
+        if (line == null) {
+            throw new IOException("End of stream");
+        }
+		return JsonParser.parseString(line).getAsJsonObject();
 	}
 }

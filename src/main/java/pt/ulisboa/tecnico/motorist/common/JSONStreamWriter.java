@@ -5,7 +5,7 @@ import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.UnsupportedEncodingException;
 
-import org.json.JSONObject;
+import com.google.gson.JsonObject;
 
 public class JSONStreamWriter {
 	private OutputStreamWriter writer;
@@ -17,7 +17,7 @@ public class JSONStreamWriter {
 		this.writer = writer;
 	}
 
-	public void write(JSONObject object) throws IOException {
+	public void write(JsonObject object) throws IOException {
 		this.writer.write(object.toString() + "\n");
 		this.writer.flush();
 	}

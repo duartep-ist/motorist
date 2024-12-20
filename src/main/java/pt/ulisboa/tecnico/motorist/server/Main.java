@@ -4,8 +4,8 @@ import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
 
-import org.json.JSONException;
-import org.json.JSONObject;
+import com.google.gson.JsonObject;
+import com.google.gson.stream.MalformedJsonException;
 
 import pt.ulisboa.tecnico.motorist.common.JSONStreamReader;
 import pt.ulisboa.tecnico.motorist.common.JSONStreamWriter;
@@ -26,16 +26,18 @@ public class Main {
 				} catch (IOException e) {
 					continue;
 				}
+
+				// Handle messages from this connection
 				while (true) {
 					try {
-						JSONObject receivedMessage = reader.read();
+						JsonObject receivedMessage = reader.read();
 						System.out.print("Received ");
 						System.out.println(receivedMessage.toString());
-						String type = receivedMessage.getString("type");
+						String type = receivedMessage.get("type").getAsString();
 						switch (type) {
 							case "echo":
-								JSONObject response = new JSONObject();
-								response.put("message", receivedMessage);
+								JsonObject response = new JsonObject();
+								response.add("message", receivedMessage);
 								System.out.print("Sending ");
 								System.out.println(response.toString());
 								writer.write(response);
@@ -46,17 +48,24 @@ public class Main {
 								clientSocket.close();
 								break;
 						}
+					} catch (MalformedJsonException e) {
+						System.out.print("Client sent a malformed message: ");
+						System.out.println(e);
+						break;
+					} catch (IllegalStateException e) {
+						System.out.print("Client sent a malformed message: ");
+						System.out.println(e);
+						break;
 					} catch (IOException e) {
 						System.out.print("Connection closed or errored out: ");
 						System.out.println(e);
 						break;
-					} catch (JSONException e) {
-						System.out.print("Client sent a malformed message: ");
+					} catch (Exception e) {
 						System.out.println(e);
-						clientSocket.close();
 						break;
 					}
 				}
+				clientSocket.close();
 			}
 		}
 	}
