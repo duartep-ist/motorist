@@ -7,10 +7,6 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-/**
- * Unit test example.
- * TODO: Write tests
- */
 public class UserKeyFileTest {
 	@Test
 	@DisplayName("The loaded key should be equal to the stored key")
@@ -20,10 +16,10 @@ public class UserKeyFileTest {
 		File tempFile = File.createTempFile("motorist-test-", "-key.p12");
 		tempFile.deleteOnExit();
 
-		UserKeyFile keyFile = new UserKeyFile(tempFile, password);
+		UserKeyFile keyFile = new UserKeyFile(tempFile);
 		SecretKey originalUserKey = UserKeyFile.generateKey();
-		keyFile.storeKey(originalUserKey);
-		SecretKey loadedUserKey = keyFile.loadKey();
+		keyFile.storeKey(originalUserKey, password);
+		SecretKey loadedUserKey = keyFile.loadKey(password);
 		Assertions.assertEquals(originalUserKey, loadedUserKey);
 	}
 }
