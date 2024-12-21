@@ -33,7 +33,7 @@ public class Main {
 		String serverAddress = args.length > 0 ? args[0] : "localhost";
 		int serverPort = args.length > 1 ? Integer.parseInt(args[1]) : 5000;
 
-		String keyFilePath = args.length > 2 ? args[2] : "./key.p12";
+		String keyFilePath = args.length > 2 ? args[2] : "./app-key.p12";
 		String username = args.length > 3 ? args[3] : prompt("Username: ");
 		String password = args.length > 4 ? args[4] : prompt("Password: ");
 
