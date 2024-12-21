@@ -59,8 +59,6 @@ public class Main {
 				while (true) {
 					try {
 						JsonObject receivedMessage = reader.read();
-						System.out.print("Received ");
-						System.out.println(receivedMessage.toString());
 						String type = receivedMessage.get("type").getAsString();
 						switch (type) {
 							case "AUTH_REQUEST":

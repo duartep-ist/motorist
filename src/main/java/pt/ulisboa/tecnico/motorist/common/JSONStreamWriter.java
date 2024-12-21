@@ -18,6 +18,7 @@ public class JSONStreamWriter {
 	}
 
 	public void write(JsonObject object) throws IOException {
+		if (Debug.ENABLED) System.out.println("Sent " + object.toString());
 		this.writer.write(object.toString() + "\n");
 		this.writer.flush();
 	}

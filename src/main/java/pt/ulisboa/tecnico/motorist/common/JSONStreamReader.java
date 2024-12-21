@@ -23,10 +23,11 @@ public class JSONStreamReader {
 	}
 
 	public JsonObject read() throws IOException {
-        String line = this.bufferedReader.readLine();
-        if (line == null) {
-            throw new IOException("End of stream");
-        }
+		String line = this.bufferedReader.readLine();
+		if (line == null) {
+			throw new IOException("End of stream");
+		}
+		if (Debug.ENABLED) System.out.println("Received " + line);
 		return JsonParser.parseString(line).getAsJsonObject();
 	}
 }
