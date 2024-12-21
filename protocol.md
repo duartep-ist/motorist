@@ -8,11 +8,11 @@ The car control protocol is used by the application to communicate with the car.
 
 These are the first steps to connect to the car. No messages should be sent by the app before the **authentication request message**.
 
-1. The client, knowing the car's public key (SSH) or knowing the public key for the car's root certificate (TLS) establishes a secure channel with the car.
-2. The app sends an **authentication request message** containing the user ID and the password.
+1. The app, knowing the car's public key (SSH) or knowing the public key for the car's root certificate (TLS) establishes a secure channel with the car.
+2. The app sends an **authentication request message** containing the username and the password.
 3. The car sends an **authentication challenge message** containing random data.
 4. The app sends an **authentication proof message** containing a MAC of the challenge. This proves to the car that the client who is connecting is in possession of the user key.
-5. The car tries to decrypt the stored encrypted user key for the user with the given ID using the password.
+5. The car tries to decrypt the stored encrypted user key for the user with the given username using the password.
 6. If the password was wrong or the MAC is invalid, the car sends an **authentication failure message**.
 7. If not, the car sends a **authentication confirmation message** and all further requests from this connection are trusted as coming from the client.
 
@@ -24,7 +24,7 @@ These are the first steps to connect to the car. No messages should be sent by t
 
 JSON object containing:
 - `type`: `"AUTH_REQUEST"`
-- `id`: user ID
+- `username`: username (string)
 - `password`: password (string)
 
 ### Authentication challenge message (car → app)

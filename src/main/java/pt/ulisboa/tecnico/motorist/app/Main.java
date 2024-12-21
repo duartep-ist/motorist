@@ -34,7 +34,7 @@ public class Main {
 		int serverPort = args.length > 1 ? Integer.parseInt(args[1]) : 5000;
 
 		String keyFilePath = args.length > 2 ? args[2] : "./key.p12";
-		String userID = args.length > 3 ? args[3] : prompt("User ID: ");
+		String username = args.length > 3 ? args[3] : prompt("Username: ");
 		String password = args.length > 4 ? args[4] : prompt("Password: ");
 
 		UserKeyFile keyFile = new UserKeyFile(new File(keyFilePath));
@@ -64,7 +64,7 @@ public class Main {
 			{
 				JsonObject authRequest = new JsonObject();
 				authRequest.addProperty("type", "AUTH_REQUEST");
-				authRequest.addProperty("username", userID);
+				authRequest.addProperty("username", username);
 				authRequest.addProperty("password", password);
 				writer.write(authRequest);
 			}
