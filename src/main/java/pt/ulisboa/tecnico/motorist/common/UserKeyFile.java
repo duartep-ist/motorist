@@ -15,11 +15,9 @@ import javax.crypto.SecretKey;
 
 public class UserKeyFile {
 	private File file;
-	private char[] password;
 
-	public UserKeyFile(File file, String password) {
+	public UserKeyFile(File file) {
 		this.file = file;
-		this.password = password.toCharArray();
 	}
 
 	public static SecretKey generateKey() {
@@ -30,7 +28,12 @@ public class UserKeyFile {
 		}
 	}
 
-	public void storeKey(SecretKey key) throws IOException {
+	public boolean exists() {
+		return this.file.exists();
+	}
+
+	public void storeKey(SecretKey key, String passwordString) throws IOException {
+		char[] password = passwordString.toCharArray();
 		try {
 			// Initialize an empty KeyStore
 			KeyStore keyStore = KeyStore.getInstance("PKCS12");
@@ -54,7 +57,14 @@ public class UserKeyFile {
 		}
 	}
 
-	public SecretKey loadKey() throws IOException, UnrecoverableEntryException, WrongPasswordException {
+	/**
+	 * Loads the user key from the file
+	 * @param passwordString
+	 * @return The user key or `null` if the password is wrong
+	 * @throws IOException
+	 */
+	public SecretKey loadKey(String passwordString) throws IOException {
+		char[] password = passwordString.toCharArray();
 		try {
 			// Load the KeyStore from the file
 			KeyStore keyStore = KeyStore.getInstance("PKCS12");
@@ -71,18 +81,14 @@ public class UserKeyFile {
 			throw new Error(e);
 		} catch (CertificateException e) {
 			throw new Error(e);
+		} catch (UnrecoverableEntryException e) {
+			return null;
 		} catch (IOException e) {
 			if (e.getMessage() != null && e.getMessage().contains("UnrecoverableKeyException")) {
-				throw new WrongPasswordException(e);
+				return null;
 			} else {
 				throw e;
 			}
-		}
-	}
-
-	public class WrongPasswordException extends Exception {
-		private WrongPasswordException(Throwable cause) {
-			super("Can't decrypt key file due to wrong password or corrupted file", cause);
 		}
 	}
 }

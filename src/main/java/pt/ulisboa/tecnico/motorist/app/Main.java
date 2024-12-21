@@ -15,7 +15,6 @@ import com.google.gson.JsonObject;
 import pt.ulisboa.tecnico.motorist.common.JSONStreamReader;
 import pt.ulisboa.tecnico.motorist.common.JSONStreamWriter;
 import pt.ulisboa.tecnico.motorist.common.UserKeyFile;
-import pt.ulisboa.tecnico.motorist.common.UserKeyFile.WrongPasswordException;
 
 public class Main {
 	private static final Base64.Encoder base64Encoder = Base64.getEncoder();
@@ -29,32 +28,29 @@ public class Main {
 	}
 
 	public static void main(String[] args) throws Exception {
-		System.err.println("Usage: app <server address> <server TCP port> <key file path> <user ID> <password>");
+		System.err.println("Usage: app <server address> <server TCP port> <key file path> <username> <password>");
 
 		String serverAddress = args.length > 0 ? args[0] : "localhost";
 		int serverPort = args.length > 1 ? Integer.parseInt(args[1]) : 5000;
 
-		String keyFilePath = args.length > 2 ? args[0] : "./key.p12";
-		String userID = args.length > 3 ? args[2] : prompt("User ID: ");
-		String password = args.length > 4 ? args[3] : prompt("Password: ");
+		String keyFilePath = args.length > 2 ? args[2] : "./key.p12";
+		String userID = args.length > 3 ? args[3] : prompt("User ID: ");
+		String password = args.length > 4 ? args[4] : prompt("Password: ");
 
-		UserKeyFile keyFile;
+		UserKeyFile keyFile = new UserKeyFile(new File(keyFilePath));
 		SecretKey userKey;
+
+		if (!keyFile.exists()) {
+			System.out.println("Key file \"" + keyFilePath + "\" not found. The file will be created with a newly-generated key.");
+			userKey = UserKeyFile.generateKey();
+			keyFile.storeKey(userKey, password);
+		}
+
 		while (true) {
-			keyFile = new UserKeyFile(new File(keyFilePath), password);
-			try {
-				userKey = keyFile.loadKey();
-				break;
-			} catch (WrongPasswordException e) {
-				System.out.println("Wrong password or corrupted key file.");
-				password = prompt("Password: ");
-			} catch (IOException e) {
-				System.out.println(e);
-				System.out.println("Key file \"" + keyFilePath + "\" not found. The file will be created with a newly-generated key.");
-				userKey = UserKeyFile.generateKey();
-				keyFile.storeKey(userKey);
-				break;
-			}
+			userKey = keyFile.loadKey(password);
+			if (userKey != null) break;
+			System.out.println("Wrong password or corrupted key file.");
+			password = prompt("Password: ");
 		}
 
 		// TODO(Duarte): The code below is untested!
@@ -68,13 +64,13 @@ public class Main {
 			{
 				JsonObject authRequest = new JsonObject();
 				authRequest.addProperty("type", "AUTH_REQUEST");
-				authRequest.addProperty("id", userID);
+				authRequest.addProperty("username", userID);
 				authRequest.addProperty("password", password);
 				writer.write(authRequest);
 			}
 			{
 				JsonObject authChallenge = reader.read();
-				if (authChallenge.get(keyFilePath).getAsString().equals("AUTH_CHALLENGE")) {
+				if (!authChallenge.get("type").getAsString().equals("AUTH_CHALLENGE")) {
 					throw new Exception("Expected to receive an AUTH_CHALLENGE message.");
 				}
 				byte[] challenge = base64Decoder.decode(authChallenge.get("challenge").getAsString());
@@ -90,16 +86,35 @@ public class Main {
 			}
 			{
 				JsonObject authResponse = reader.read();
-				if (authResponse.get(keyFilePath).getAsString().equals("AUTH_FAILURE")) {
-					System.out.println("Wrong user ID or password.");
-				} else if (!authResponse.get(keyFilePath).getAsString().equals("AUTH_CONFIRMATION")) {
+				if (authResponse.get("type").getAsString().equals("AUTH_FAILURE")) {
+					System.out.println("Wrong username or password.");
+					return;
+				} else if (!authResponse.get("type").getAsString().equals("AUTH_CONFIRMATION")) {
 					throw new Exception("Expected to receive an AUTH_CONFIRMATION or AUTH_FAILURE message.");
 				}
 			}
 
 			// At this point we are successfully authenticated.
+
+			input_loop:
+			while (true) {
+				String input = prompt("app> ");
+				String[] arguments = input.split(" ");
+				switch (arguments[0]) {
+					case "exit":
+						break input_loop;
+
+					case "help":
+						System.out.println("TODO");
+						break;
+				
+					default:
+						System.out.println("Unrecognized command.");
+						break;
+				}
+			}
 		} catch (IOException e) {
-			System.out.println("Couldn't connect to the server: " + e.getMessage());
+			System.out.println("Connection error: " + e.getMessage());
 		}
 	}
 }
