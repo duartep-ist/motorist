@@ -4,6 +4,7 @@ import java.io.File;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
@@ -16,10 +17,12 @@ import javax.crypto.Mac;
 import javax.crypto.SecretKey;
 
 import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import com.google.gson.stream.MalformedJsonException;
 
 import pt.ulisboa.tecnico.motorist.common.JSONStreamReader;
 import pt.ulisboa.tecnico.motorist.common.JSONStreamWriter;
+import pt.ulisboa.tecnico.motorist.common.SecureDocument;
 import pt.ulisboa.tecnico.motorist.common.UserKeyFile;
 
 public class Main {
@@ -27,6 +30,8 @@ public class Main {
 	private static final Base64.Decoder base64Decoder = Base64.getDecoder();
 	private static final SecureRandom secureRandom = new SecureRandom();
 	private static final Pattern usernamePattern = Pattern.compile("^(?:\\w|-)+$");
+
+	private static final JsonObject defaultUserConfig = JsonParser.parseString("{\"ac\":[{\"out1\":\"1000\"},{\"out2\":\"1000\"}],\"seat\":[{\"pos1\":\"0\"},{\"pos2\":\"0\"}]}").getAsJsonObject();
 
 	private static String databaseDirPath;
 
@@ -50,6 +55,7 @@ public class Main {
 				}
 
 				ConnectionState state = ConnectionState.AWAITING_AUTH_REQUEST;
+				SecretKey userKey = null;
 				String username = null;
 				String password = null;
 				byte[] challenge = new byte[32];
@@ -61,7 +67,7 @@ public class Main {
 						JsonObject receivedMessage = reader.read();
 						String type = receivedMessage.get("type").getAsString();
 						switch (type) {
-							case "AUTH_REQUEST":
+							case "AUTH_REQUEST": {
 								if (state != ConnectionState.AWAITING_AUTH_REQUEST)
 									throw new Exception("Unexpected auth request message");
 
@@ -79,13 +85,15 @@ public class Main {
 
 								state = ConnectionState.AWAITING_AUTH_PROOF;
 								break;
+							}
 
-							case "AUTH_PROOF":
+							case "AUTH_PROOF": {
 								if (state != ConnectionState.AWAITING_AUTH_PROOF)
 									throw new Exception("Unexpected auth proof message");
 
 								JsonObject response = new JsonObject();
-								if (validateAuth(username, password, challenge, base64Decoder.decode(receivedMessage.get("mac").getAsString()))) {
+								userKey = validateAuth(username, password, challenge, base64Decoder.decode(receivedMessage.get("mac").getAsString()));
+								if (userKey != null) {
 									state = ConnectionState.AUTHENTICATED;
 									response.addProperty("type", "AUTH_CONFIRMATION");
 									writer.write(response);
@@ -95,6 +103,28 @@ public class Main {
 									break receive_loop;
 								}
 								break;
+							}
+
+							case "USER_CONFIG_READ_REQUEST": {
+								JsonObject response = new JsonObject();
+								response.addProperty("type", "USER_CONFIG_READ_RESPONSE");
+								try {
+									response.add("configuration", SecureDocument.unprotect(userKey, Files.readAllBytes(Paths.get(databaseDirPath, "users", username, "user-config.json.prot"))));
+								} catch (IOException e) {
+									response.add("configuration", defaultUserConfig);
+								}
+								writer.write(response);
+								break;
+							}
+
+							case "USER_CONFIG_WRITE_REQUEST": {
+								Files.write(Paths.get(databaseDirPath, "users", username, "user-config.json.prot"), SecureDocument.protect(userKey, receivedMessage.get("configuration").getAsJsonObject()));
+
+								JsonObject confirmation = new JsonObject();
+								confirmation.addProperty("type", "USER_CONFIG_WRITE_CONFIRMATION");
+								writer.write(confirmation);
+								break;
+							}
 
 							default:
 								throw new Exception("Unrecognized message type \"" + type + "\".");
@@ -121,17 +151,17 @@ public class Main {
 		}
 	}
 
-	private static boolean validateAuth(String username, String password, byte[] challenge, byte[] receivedMac) throws IOException {
+	private static SecretKey validateAuth(String username, String password, byte[] challenge, byte[] receivedMac) throws IOException {
 		if (!new File(Paths.get(databaseDirPath, "users", username).toString()).exists()) {
 			System.out.println("Authentication failure: User \"" + username + "\" does not exist.");
-			return false;
+			return null;
 		}
 
 		UserKeyFile keyFile = new UserKeyFile(new File(Paths.get(databaseDirPath, "users", username, "key.p12").toString()));
 		SecretKey userKey = keyFile.loadKey(password);
 		if (userKey == null) {
 			System.out.println("Authentication failure: Wrong password for user \"" + username + "\".");
-			return false;
+			return null;
 		}
 
 		byte[] realMac;
@@ -147,10 +177,10 @@ public class Main {
 
 		if (Arrays.equals(receivedMac, realMac)) {
 			System.out.println("User \"" + username + "\" successfully authenticated.");
-			return true;
+			return userKey;
 		} else {
 			System.out.println("Authentication failure: Invalid MAC for user \"" + username + "\".");
-			return false;
+			return null;
 		}
 	}
 }

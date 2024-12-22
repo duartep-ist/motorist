@@ -5,12 +5,16 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.Socket;
+import java.util.Arrays;
 import java.util.Base64;
 
 import javax.crypto.Mac;
 import javax.crypto.SecretKey;
 
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 
 import pt.ulisboa.tecnico.motorist.common.JSONStreamReader;
 import pt.ulisboa.tecnico.motorist.common.JSONStreamWriter;
@@ -28,7 +32,7 @@ public class Main {
 	}
 
 	public static void main(String[] args) throws Exception {
-		System.err.println("Usage: app <server address> <server TCP port> <key file path> <username> <password>");
+		System.err.println("Usage: app <server address> <server TCP port> <key file path> <username> <password> <subcommand> <arguments>...");
 
 		String serverAddress = args.length > 0 ? args[0] : "localhost";
 		int serverPort = args.length > 1 ? Integer.parseInt(args[1]) : 5000;
@@ -52,8 +56,6 @@ public class Main {
 			System.out.println("Wrong password or corrupted key file.");
 			password = prompt("Password: ");
 		}
-
-		// TODO(Duarte): The code below is untested!
 
 		try (Socket socket = new Socket(serverAddress, serverPort)) {
 			System.out.println("Connected to the server!");
@@ -87,10 +89,10 @@ public class Main {
 			{
 				JsonObject authResponse = reader.read();
 				if (authResponse.get("type").getAsString().equals("AUTH_FAILURE")) {
-					System.out.println("Wrong username or password.");
+					System.out.println("Wrong username or key.");
 					return;
 				} else if (!authResponse.get("type").getAsString().equals("AUTH_CONFIRMATION")) {
-					throw new Exception("Expected to receive an AUTH_CONFIRMATION or AUTH_FAILURE message.");
+					throw new Exception("Expected to receive an AUTH_CONFIRMATION or AUTH_FAILURE message");
 				}
 			}
 
@@ -98,20 +100,59 @@ public class Main {
 
 			input_loop:
 			while (true) {
-				String input = prompt("app> ");
-				String[] arguments = input.split(" ");
+				String[] arguments;
+				if (args.length > 5) {
+					arguments = Arrays.copyOfRange(args, 5, args.length);
+				} else {
+					String input = prompt("app> ");
+					arguments = input.split(" ");
+				}
+
 				switch (arguments[0]) {
 					case "exit":
 						break input_loop;
 
 					case "help":
-						System.out.println("TODO");
+						System.out.println(
+							"Available commands:\n" +
+							"  help\n" +
+							"  get-user-config\n" +
+							"  set-user-config <JSON>"
+						);
 						break;
-				
+
+					case "get-user-config": {
+						JsonObject request = new JsonObject();
+						request.addProperty("type", "USER_CONFIG_READ_REQUEST");
+						writer.write(request);
+
+						JsonObject response = reader.read();
+						if (!response.get("type").getAsString().equals("USER_CONFIG_READ_RESPONSE"))
+							throw new Exception("Expected to receive a USER_CONFIG_READ_RESPONSE message");
+
+						Gson prettyPrinter = new GsonBuilder().setPrettyPrinting().create();
+						System.out.println("Current user configuration:\n" + prettyPrinter.toJson(response.get("configuration")));
+						break;
+					}
+
+					case "set-user-config": {
+						JsonObject request = new JsonObject();
+						request.addProperty("type", "USER_CONFIG_WRITE_REQUEST");
+						request.add("configuration", JsonParser.parseString(arguments[1]).getAsJsonObject());
+						writer.write(request);
+
+						JsonObject response = reader.read();
+						if (!response.get("type").getAsString().equals("USER_CONFIG_WRITE_CONFIRMATION"))
+							throw new Exception("Expected to receive a USER_CONFIG_WRITE_CONFIRMATION message");
+						break;
+					}
+
 					default:
-						System.out.println("Unrecognized command.");
+						System.out.println("Unrecognized command \"" + arguments[0] + "\".");
 						break;
 				}
+
+				if (args.length > 5) break;
 			}
 		} catch (IOException e) {
 			System.out.println("Connection error: " + e.getMessage());

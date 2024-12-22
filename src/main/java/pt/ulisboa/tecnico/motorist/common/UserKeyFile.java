@@ -48,11 +48,7 @@ public class UserKeyFile {
 			try (FileOutputStream stream = new FileOutputStream(file)) {
 				keyStore.store(stream, password);
 			}
-		} catch (KeyStoreException e) {
-			throw new Error(e);
-		} catch (NoSuchAlgorithmException e) {
-			throw new Error(e);
-		} catch (CertificateException e) {
+		} catch (KeyStoreException | NoSuchAlgorithmException | CertificateException e) {
 			throw new Error(e);
 		}
 	}
@@ -75,11 +71,7 @@ public class UserKeyFile {
 			// Load the key from the KeyStore
 			KeyStore.ProtectionParameter protectionParameter = new KeyStore.PasswordProtection(password);
 			return ((KeyStore.SecretKeyEntry) keyStore.getEntry("userKey", protectionParameter)).getSecretKey();
-		} catch (KeyStoreException e) {
-			throw new Error(e);
-		} catch (NoSuchAlgorithmException e) {
-			throw new Error(e);
-		} catch (CertificateException e) {
+		} catch (KeyStoreException | NoSuchAlgorithmException | CertificateException e) {
 			throw new Error(e);
 		} catch (UnrecoverableEntryException e) {
 			return null;
