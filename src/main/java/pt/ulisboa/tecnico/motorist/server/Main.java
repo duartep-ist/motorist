@@ -32,6 +32,7 @@ public class Main {
 	private static final Pattern usernamePattern = Pattern.compile("^(?:\\w|-)+$");
 
 	private static final JsonObject defaultUserConfig = JsonParser.parseString("{\"ac\":[{\"out1\":\"1000\"},{\"out2\":\"1000\"}],\"seat\":[{\"pos1\":\"0\"},{\"pos2\":\"0\"}]}").getAsJsonObject();
+	private static final String carID = "1234XYZ";
 
 	private static String databaseDirPath;
 
@@ -106,6 +107,9 @@ public class Main {
 							}
 
 							case "USER_CONFIG_READ_REQUEST": {
+								if (state != ConnectionState.AUTHENTICATED)
+									throw new Exception("The client isn't authenticated yet");
+
 								JsonObject response = new JsonObject();
 								response.addProperty("type", "USER_CONFIG_READ_RESPONSE");
 								try {
@@ -118,11 +122,30 @@ public class Main {
 							}
 
 							case "USER_CONFIG_WRITE_REQUEST": {
+								if (state != ConnectionState.AUTHENTICATED)
+									throw new Exception("The client isn't authenticated yet");
+
 								Files.write(Paths.get(databaseDirPath, "users", username, "user-config.json.prot"), SecureDocument.protect(userKey, receivedMessage.get("configuration").getAsJsonObject()));
 
 								JsonObject confirmation = new JsonObject();
 								confirmation.addProperty("type", "USER_CONFIG_WRITE_CONFIRMATION");
 								writer.write(confirmation);
+								break;
+							}
+
+							case "CAR_INFO_READ_REQUEST": {
+								if (state != ConnectionState.AUTHENTICATED)
+									throw new Exception("The client isn't authenticated yet");
+
+								JsonObject response = new JsonObject();
+								response.addProperty("type", "CAR_INFO_READ_RESPONSE");
+
+								JsonObject info = new JsonObject();
+								info.addProperty("carID", carID);
+								info.addProperty("batteryLevel", 75);
+
+								response.add("info", info);
+								writer.write(response);
 								break;
 							}
 

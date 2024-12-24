@@ -117,7 +117,8 @@ public class Main {
 							"Available commands:\n" +
 							"  help\n" +
 							"  get-user-config\n" +
-							"  set-user-config <JSON>"
+							"  set-user-config <JSON>\n" +
+							"  get-car-info"
 						);
 						break;
 
@@ -144,6 +145,25 @@ public class Main {
 						JsonObject response = reader.read();
 						if (!response.get("type").getAsString().equals("USER_CONFIG_WRITE_CONFIRMATION"))
 							throw new Exception("Expected to receive a USER_CONFIG_WRITE_CONFIRMATION message");
+						break;
+					}
+
+					case "get-car-info": {
+						JsonObject request = new JsonObject();
+						request.addProperty("type", "CAR_INFO_READ_REQUEST");
+						writer.write(request);
+
+						JsonObject response = reader.read();
+						if (!response.get("type").getAsString().equals("CAR_INFO_READ_RESPONSE"))
+							throw new Exception("Expected to receive a CAR_INFO_READ_RESPONSE message");
+
+						JsonObject info = response.get("info").getAsJsonObject();
+
+						System.out.printf(
+							"Current car information:\n" +
+							"  Car ID: " + info.get("carID").getAsString() + "\n" +
+							"  Battery level: " + info.get("batteryLevel").getAsNumber().toString() + "\n"
+						);
 						break;
 					}
 

@@ -85,9 +85,25 @@ JSON object containing:
 - `type`: `"USER_CONFIG_READ_RESPONSE"`
 - `configuration`: the JSON object described in the scenario
 
-## Shared info read
 
-**TODO**
+## Car info read
+
+1. The app sends a **car info read request message**.
+2. The car replies with a **car info read response message**.
+
+### Car info read request message
+
+JSON object containing:
+- `type`: `"CAR_INFO_READ_REQUEST"`
+
+### Car info read response message
+
+JSON object containing:
+- `type`: `"CAR_INFO_READ_RESPONSE"`
+- `info`: JSON object containing:
+  - `carID`: car ID (string)
+  - `batteryLevel`: number between 0 and 100
+  - TODO: add more?
 
 ## Firmware update
 
