@@ -11,6 +11,10 @@ import java.util.Base64;
 import javax.crypto.Mac;
 import javax.crypto.SecretKey;
 
+import com.jcraft.jsch.JSch;
+import com.jcraft.jsch.Session;
+import com.jcraft.jsch.JSchException;
+
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
@@ -57,125 +61,135 @@ public class Main {
 			password = prompt("Password: ");
 		}
 
-		try (Socket socket = new Socket(serverAddress, serverPort)) {
-			System.out.println("Connected to the server!");
+		Session sshSession = null;
+		try {
+			JSch jsch = new JSch();
+            sshSession = jsch.getSession("app", serverAddress, serverPort);
+            sshSession.setConfig("StrictHostKeyChecking", "no"); 
+            sshSession.connect();
 
-			JSONStreamReader reader = new JSONStreamReader(socket.getInputStream());
-			JSONStreamWriter writer = new JSONStreamWriter(socket.getOutputStream());
+			try (Socket socket = new Socket(serverAddress, serverPort)) {
+				System.out.println("Connected to the server!");
 
-			{
-				JsonObject authRequest = new JsonObject();
-				authRequest.addProperty("type", "AUTH_REQUEST");
-				authRequest.addProperty("username", username);
-				authRequest.addProperty("password", password);
-				writer.write(authRequest);
-			}
-			{
-				JsonObject authChallenge = reader.read();
-				if (!authChallenge.get("type").getAsString().equals("AUTH_CHALLENGE")) {
-					throw new Exception("Expected to receive an AUTH_CHALLENGE message.");
+				JSONStreamReader reader = new JSONStreamReader(socket.getInputStream());
+				JSONStreamWriter writer = new JSONStreamWriter(socket.getOutputStream());
+
+				{
+					JsonObject authRequest = new JsonObject();
+					authRequest.addProperty("type", "AUTH_REQUEST");
+					authRequest.addProperty("username", username);
+					authRequest.addProperty("password", password);
+					writer.write(authRequest);
 				}
-				byte[] challenge = base64Decoder.decode(authChallenge.get("challenge").getAsString());
+				{
+					JsonObject authChallenge = reader.read();
+					if (!authChallenge.get("type").getAsString().equals("AUTH_CHALLENGE")) {
+						throw new Exception("Expected to receive an AUTH_CHALLENGE message.");
+					}
+					byte[] challenge = base64Decoder.decode(authChallenge.get("challenge").getAsString());
 
-				Mac mac = Mac.getInstance("HmacSHA256");
-				mac.init(userKey);
-				byte[] macResult = mac.doFinal(challenge);
+					Mac mac = Mac.getInstance("HmacSHA256");
+					mac.init(userKey);
+					byte[] macResult = mac.doFinal(challenge);
 
-				JsonObject authProof = new JsonObject();
-				authProof.addProperty("type", "AUTH_PROOF");
-				authProof.addProperty("mac", new String(base64Encoder.encode(macResult)));
-				writer.write(authProof);
-			}
-			{
-				JsonObject authResponse = reader.read();
-				if (authResponse.get("type").getAsString().equals("AUTH_FAILURE")) {
-					System.out.println("Wrong username or key.");
-					return;
-				} else if (!authResponse.get("type").getAsString().equals("AUTH_CONFIRMATION")) {
-					throw new Exception("Expected to receive an AUTH_CONFIRMATION or AUTH_FAILURE message");
+					JsonObject authProof = new JsonObject();
+					authProof.addProperty("type", "AUTH_PROOF");
+					authProof.addProperty("mac", new String(base64Encoder.encode(macResult)));
+					writer.write(authProof);
 				}
-			}
-
-			// At this point we are successfully authenticated.
-
-			input_loop:
-			while (true) {
-				String[] arguments;
-				if (args.length > 5) {
-					arguments = Arrays.copyOfRange(args, 5, args.length);
-				} else {
-					String input = prompt("app> ");
-					arguments = input.split(" ");
+				{
+					JsonObject authResponse = reader.read();
+					if (authResponse.get("type").getAsString().equals("AUTH_FAILURE")) {
+						System.out.println("Wrong username or key.");
+						return;
+					} else if (!authResponse.get("type").getAsString().equals("AUTH_CONFIRMATION")) {
+						throw new Exception("Expected to receive an AUTH_CONFIRMATION or AUTH_FAILURE message");
+					}
 				}
 
-				switch (arguments[0]) {
-					case "exit":
-						break input_loop;
+				// At this point we are successfully authenticated.
 
-					case "help":
-						System.out.println(
-							"Available commands:\n" +
-							"  help\n" +
-							"  get-user-config\n" +
-							"  set-user-config <JSON>\n" +
-							"  get-car-info"
-						);
-						break;
-
-					case "get-user-config": {
-						JsonObject request = new JsonObject();
-						request.addProperty("type", "USER_CONFIG_READ_REQUEST");
-						writer.write(request);
-
-						JsonObject response = reader.read();
-						if (!response.get("type").getAsString().equals("USER_CONFIG_READ_RESPONSE"))
-							throw new Exception("Expected to receive a USER_CONFIG_READ_RESPONSE message");
-
-						Gson prettyPrinter = new GsonBuilder().setPrettyPrinting().create();
-						System.out.println("Current user configuration:\n" + prettyPrinter.toJson(response.get("configuration")));
-						break;
+				input_loop:
+				while (true) {
+					String[] arguments;
+					if (args.length > 5) {
+						arguments = Arrays.copyOfRange(args, 5, args.length);
+					} else {
+						String input = prompt("app> ");
+						arguments = input.split(" ");
 					}
 
-					case "set-user-config": {
-						JsonObject request = new JsonObject();
-						request.addProperty("type", "USER_CONFIG_WRITE_REQUEST");
-						request.add("configuration", JsonParser.parseString(arguments[1]).getAsJsonObject());
-						writer.write(request);
+					switch (arguments[0]) {
+						case "exit":
+							break input_loop;
 
-						JsonObject response = reader.read();
-						if (!response.get("type").getAsString().equals("USER_CONFIG_WRITE_CONFIRMATION"))
-							throw new Exception("Expected to receive a USER_CONFIG_WRITE_CONFIRMATION message");
-						break;
+						case "help":
+							System.out.println(
+								"Available commands:\n" +
+								"  help\n" +
+								"  get-user-config\n" +
+								"  set-user-config <JSON>\n" +
+								"  get-car-info"
+							);
+							break;
+
+						case "get-user-config": {
+							JsonObject request = new JsonObject();
+							request.addProperty("type", "USER_CONFIG_READ_REQUEST");
+							writer.write(request);
+
+							JsonObject response = reader.read();
+							if (!response.get("type").getAsString().equals("USER_CONFIG_READ_RESPONSE"))
+								throw new Exception("Expected to receive a USER_CONFIG_READ_RESPONSE message");
+
+							Gson prettyPrinter = new GsonBuilder().setPrettyPrinting().create();
+							System.out.println("Current user configuration:\n" + prettyPrinter.toJson(response.get("configuration")));
+							break;
+						}
+
+						case "set-user-config": {
+							JsonObject request = new JsonObject();
+							request.addProperty("type", "USER_CONFIG_WRITE_REQUEST");
+							request.add("configuration", JsonParser.parseString(arguments[1]).getAsJsonObject());
+							writer.write(request);
+
+							JsonObject response = reader.read();
+							if (!response.get("type").getAsString().equals("USER_CONFIG_WRITE_CONFIRMATION"))
+								throw new Exception("Expected to receive a USER_CONFIG_WRITE_CONFIRMATION message");
+							break;
+						}
+
+						case "get-car-info": {
+							JsonObject request = new JsonObject();
+							request.addProperty("type", "CAR_INFO_READ_REQUEST");
+							writer.write(request);
+
+							JsonObject response = reader.read();
+							if (!response.get("type").getAsString().equals("CAR_INFO_READ_RESPONSE"))
+								throw new Exception("Expected to receive a CAR_INFO_READ_RESPONSE message");
+
+							JsonObject info = response.get("info").getAsJsonObject();
+
+							System.out.printf(
+								"Current car information:\n" +
+								"  Car ID: " + info.get("carID").getAsString() + "\n" +
+								"  Battery level: " + info.get("batteryLevel").getAsNumber().toString() + "\n"
+							);
+							break;
+						}
+
+						default:
+							System.out.println("Unrecognized command \"" + arguments[0] + "\".");
+							break;
 					}
 
-					case "get-car-info": {
-						JsonObject request = new JsonObject();
-						request.addProperty("type", "CAR_INFO_READ_REQUEST");
-						writer.write(request);
-
-						JsonObject response = reader.read();
-						if (!response.get("type").getAsString().equals("CAR_INFO_READ_RESPONSE"))
-							throw new Exception("Expected to receive a CAR_INFO_READ_RESPONSE message");
-
-						JsonObject info = response.get("info").getAsJsonObject();
-
-						System.out.printf(
-							"Current car information:\n" +
-							"  Car ID: " + info.get("carID").getAsString() + "\n" +
-							"  Battery level: " + info.get("batteryLevel").getAsNumber().toString() + "\n"
-						);
-						break;
-					}
-
-					default:
-						System.out.println("Unrecognized command \"" + arguments[0] + "\".");
-						break;
+					if (args.length > 5) break;
 				}
-
-				if (args.length > 5) break;
+			} catch (IOException e) {
+				System.out.println("Connection error: " + e.getMessage());
 			}
-		} catch (IOException e) {
-			System.out.println("Connection error: " + e.getMessage());
+		} catch (JSchException e) {
+			System.out.println("SSH tunneling session error: " + e.getMessage());
 		}
 	}
 }
