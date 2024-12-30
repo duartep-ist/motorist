@@ -40,6 +40,15 @@ public class Main {
 		databaseDirPath = args.length > 0 ? args[0] : "./server-db";
 		new File(Paths.get(databaseDirPath, "users").toString()).mkdirs();
 
+		try {
+            UpdateDaemon daemon = new UpdateDaemon(databaseDirPath);
+			Thread daemonThread = new Thread(daemon); 
+            daemonThread.start(); 
+        } catch (Exception e) {
+            System.err.println("SERVER: Failed to start UpdateDaemon: " + e.getMessage());
+            e.printStackTrace();
+        }
+
 		try (ServerSocket serverSocket = new ServerSocket(5000)) {
 			System.out.println("Listening on port 5000.");
 			while (true) {
