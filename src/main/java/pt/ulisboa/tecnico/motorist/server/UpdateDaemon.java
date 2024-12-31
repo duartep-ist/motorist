@@ -57,17 +57,19 @@ public class UpdateDaemon implements Runnable {
                 try (Socket socket = listener.accept()) {
                     try {
                         is = new BufferedInputStream(socket.getInputStream());
+                        os = new BufferedOutputStream(socket.getOutputStream());
                         byte[] data = new byte[2048];
                         int len = is.read(data);
 
                         message = new String(data, 0, len);
-                        os = new BufferedOutputStream(socket.getOutputStream());
                         System.out.printf("server received %d bytes: %s%n", len, message);
-                        String response = message + " processed by server";
-                        os.write(response.getBytes(), 0, response.getBytes().length);
-                        os.flush();
+                        
 
                         String firmwareName = rcvdMessage(is);
+                        if (firmwareName.equals("No update available")) {
+                            System.out.println(firmwareName);
+                            continue;
+                        }
                         System.out.println("Firmware name received: " + firmwareName);
                         String firmware = rcvdMessage(is);
                         System.out.println("Firmware received: " + firmware);
@@ -78,7 +80,7 @@ public class UpdateDaemon implements Runnable {
                         //System.out.println("Public key loaded: " + publicKey);
                         if(!verifySignature(firmware, signature, publicKey)) {
                             System.out.println("Invalid signature. Firmware update rejected.");
-                            return;
+                            continue;
                         } 
                         System.out.println("Signature verified. Firmware update accepted.");
                         // save the firmware to a file and also the signature

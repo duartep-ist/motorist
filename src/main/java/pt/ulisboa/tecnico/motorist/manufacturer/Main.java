@@ -3,12 +3,18 @@ package pt.ulisboa.tecnico.motorist.manufacturer;
 import javax.net.SocketFactory;
 import javax.net.ssl.*;
 import java.io.*;
+import java.lang.reflect.Array;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.security.KeyFactory;
 import java.security.PrivateKey;
 import java.security.Signature;
 import java.security.spec.PKCS8EncodedKeySpec;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.util.ArrayList;
 import java.util.Base64;
 
 
@@ -32,14 +38,14 @@ public class Main {
         System.setProperty("javax.net.ssl.trustStorePassword", "changeme");
     }
 
+
+
+
     // sign firmware
-    public static String signFirmware(File firmwareFile) throws Exception {
+    public static String signFirmware(byte[] firmwareData ) throws Exception {
         // Load private key
         PrivateKey privateKey = loadPrivateKey();
 
-        byte[] firmwareData = readFirmwareFile(firmwareFile);
-
-        
         Signature signature = Signature.getInstance("SHA256withRSA");
         signature.initSign(privateKey);
         signature.update(firmwareData);
@@ -120,8 +126,38 @@ public class Main {
         return firmwareFile;
     }
 
+    public static String getLatestUpdateFromDB(String version) throws Exception {
+        Connection connection = DriverManager.getConnection(
+            "jdbc:mariadb://localhost:3306/firmware_db",
+            "manufacturer_user", "password"
+        );
+        try(PreparedStatement stmt = connection.prepareStatement("SELECT * FROM firmware_updates WHERE version > ? ORDER BY version DESC LIMIT 1")) {
+            stmt.setString(1, version);
+            ResultSet rs = stmt.executeQuery();
+            String update = null;
+            while(rs.next()){
+                System.out.println("Version: " + rs.getString("version"));
+                byte[] data = rs.getBytes("firmware_data");
+                update = new String(data);
+                System.out.println("Description: " + rs.getString("description"));
+                System.out.println("Data: " + update);
+            }
+            connection.close(); 
+            System.out.println("closed connection");
+            if(update == null){
+                System.out.println("No update available");
+                return null;
+            }
+            return update;
+        } catch (Exception e) {
+            System.out.println("Failed to get latest update from DB: " + e.getMessage());
+            e.printStackTrace();
+            return null;
+        }
+    }
+
    
-    public static void main(String[] args) throws IOException {
+    public static void main(String[] args) throws Exception {
         
         int port;
         new File(Paths.get(manufacturerFirmwarePath).toString()).mkdirs();
@@ -151,20 +187,23 @@ public class Main {
             InputStream is = new BufferedInputStream(socket.getInputStream());
 
             sendMessage(os, "This is a secure channel!");
-            rcvdMessage(is);
 
-            String firmwareName = "update_v1";
-            File update = createFirmwareUpdateFile(firmwareName + ".bin");
+            //String firmwareName = "update_v1";
+            //File update = createFirmwareUpdateFile(firmwareName + ".bin");
+            //mudar para receber versao mais recente do carro
+            String update = getLatestUpdateFromDB("1.0.0");
             if (update == null) {
-                System.out.println("Firmware file not found.");
+                sendMessage(os, "No update available");
                 return;
             }
             try {
-                String signature = signFirmware(update);
+                //String signature = signFirmware(Files.readAllBytes(update.toPath()));
+                String signature = signFirmware(update.getBytes());
                 System.out.println("Firmware signed successfully.");
-                sendMessage(os, firmwareName);
+                //change the firmware name 
+                sendMessage(os, "firmwareName");
                 System.out.println("Firmware name sent successfully.");
-                sendFile(os, update);
+                sendMessage(os, update);
                 System.out.println("Firmware sent successfully.");
                 sendMessage(os, signature);
                 System.out.println("Signature sent successfully.");
