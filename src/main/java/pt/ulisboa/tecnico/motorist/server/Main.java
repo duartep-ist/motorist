@@ -4,8 +4,10 @@ import java.io.File;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
@@ -41,13 +43,13 @@ public class Main {
 		new File(Paths.get(databaseDirPath, "users").toString()).mkdirs();
 
 		try {
-            UpdateDaemon daemon = new UpdateDaemon(databaseDirPath);
+			UpdateDaemon daemon = new UpdateDaemon(databaseDirPath);
 			Thread daemonThread = new Thread(daemon); 
-            daemonThread.start(); 
-        } catch (Exception e) {
-            System.err.println("SERVER: Failed to start UpdateDaemon: " + e.getMessage());
-            e.printStackTrace();
-        }
+			daemonThread.start(); 
+		} catch (Exception e) {
+			System.err.println("SERVER: Failed to start UpdateDaemon: " + e.getMessage());
+			e.printStackTrace();
+		}
 
 		try (ServerSocket serverSocket = new ServerSocket(5000)) {
 			System.out.println("Listening on port 5000.");
@@ -134,7 +136,18 @@ public class Main {
 								if (state != ConnectionState.AUTHENTICATED)
 									throw new Exception("The client isn't authenticated yet");
 
-								Files.write(Paths.get(databaseDirPath, "users", username, "user-config.json.prot"), SecureDocument.protect(userKey, receivedMessage.get("configuration").getAsJsonObject()));
+								// Record the configuration change event in the log (requirement SRA3)
+								Files.write(
+									Paths.get(databaseDirPath, "log.txt"),
+									("User \"" + username + "\" made changes to the user configuration.\n").getBytes(StandardCharsets.UTF_8),
+									StandardOpenOption.APPEND,
+									StandardOpenOption.CREATE
+								);
+
+								Files.write(
+									Paths.get(databaseDirPath, "users", username, "user-config.json.prot"),
+									SecureDocument.protect(userKey, receivedMessage.get("configuration").getAsJsonObject())
+								);
 
 								JsonObject confirmation = new JsonObject();
 								confirmation.addProperty("type", "USER_CONFIG_WRITE_CONFIRMATION");
