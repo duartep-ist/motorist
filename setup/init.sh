@@ -9,8 +9,9 @@ echo
 echo "First, let's create a user named \"alice\" for the car. Please choose a password for this user."
 rm -f ./app-key.p12
 sh ./run app - 0 ./app-key.p12 alice
-mkdir -p ./manufacturer-db/users/alice
-cp ./app-key.p12 ./manufacturer-db/users/alice/key.p12
+rm -rf ./server-db
+mkdir -p ./server-db/users/alice
+cp ./app-key.p12 ./server-db/users/alice/key.p12
 
 echo
 echo "Generating TLS key pairs and certificates..."
@@ -28,6 +29,8 @@ openssl pkcs12 -export -in manufacturer.crt -inkey manufacturer.key -out manufac
 openssl pkcs12 -export -in daemon.crt -inkey daemon.key -out daemon.p12 -passout pass:changeme
 keytool -importcert -noprompt -trustcacerts -file daemon.pem -keypass changeme -storepass changeme -keystore manufacturertruststore.jks
 keytool -importcert -noprompt -trustcacerts -file manufacturer.pem -keypass changeme -storepass changeme -keystore daemontruststore.jks
+rm -f "{manufacturer,daemon}{.key,.pem,.crt}"
+
 
 echo
 echo "Generating the manufacturer's key pair..."
@@ -42,4 +45,4 @@ printf "\n192.168.1.1 " >> "$HOME/.ssh/known_hosts"
 cat /etc/ssh/ssh_host_ed25519_key.pub >> "$HOME/.ssh/known_hosts"
 
 echo
-echo "Done! Now, clone this VM as described in the setup instructions."
+echo "Done! Now, shutdown and clone this VM as described in the setup instructions."

@@ -22,7 +22,8 @@ These instructions are based on the [virtual networking lab](https://github.com/
 1. Make sure it is connected to a NAT in the network settings.
 1. Boot up the VM.
 1. Copy the project folder to it.
-1. Run `bash setup/init.sh` and shutdown the VM.
+1. Run `bash setup/init.sh`.
+1. Shutdown the VM.
 1. In the VM's network settings, attach the **first** the network adapter to the `sw-1` internal network with promiscuous mode set to "Allow VMs".
 1. Clone the VM 3 times for a total of 4 VMs (see above) and name them accordingly, with the clone type set to "Linked clone" and the MAC address policy set to "Generate new MAC addresses for all network adapters".
 1. In the **manufacturer server machine**'s network settings, attach the **second** network adapter to the `sw-2` internal network with promiscuous mode set to "Allow VMs".
