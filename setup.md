@@ -30,7 +30,14 @@ cp /path/to/app-key.p12 ./manufacturer-db/users/alice/key.p12
 
 ## Setting up TLS
 
-<!-- TODO: Which files need to be in which machines? -->
+<!-- TODO: How do we handle key/certs distribution ? -->
+Manufacturer server should have:
+- manufacturer.p12
+- manufacturertruststore.jks
+
+UpdateDaemon (car server) should have:
+- daemon.p12
+- daemontruststore.jks
 
 ```sh
 openssl genrsa -out manufacturer.key
@@ -49,18 +56,18 @@ keytool -import -trustcacerts -file manufacturer.pem -keypass changeme -storepas
 ```
 
 
-## Creating the daemon's key pair
+## Creating the manufacturer's key pair
 
 This key pair is used to guarantee the integrity of the updates.
 
-To generate the key pair, run the following commands in the project directory in the daemon manufacturer machine:
+To generate the key pair, run the following commands in the project directory in the manufacturer server machine:
 
 ```sh
-openssl genpkey -algorithm RSA -out daemon_private.pem -pkeyopt rsa_keygen_bits:2048
-openssl rsa -pubout -in daemon_private.pem -out daemon_public.pem
+openssl genpkey -algorithm RSA -out manufacturer_private.pem -pkeyopt rsa_keygen_bits:2048
+openssl rsa -pubout -in manufacturer_private.pem -out manufacturer_public.pem
 ```
 
-Afterwards, copy `./daemon_public.pem` to the car manufacturer machine.
+Afterwards, copy `./manufacturer_public.pem` to the car server machine.
 
 
 ## Database setup
