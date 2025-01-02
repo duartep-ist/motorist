@@ -125,9 +125,9 @@ public class Main {
      * @return the update and the version
      * @throws Exception
      */
-    public static String[] getLatestUpdateFromDB(String version) throws Exception {
+    public static String[] getLatestUpdateFromDB(String version , String databaseAddress) throws Exception {
         Connection connection = DriverManager.getConnection(
-            "jdbc:mariadb://localhost:3306/firmware_db",
+            "jdbc:mariadb://" + databaseAddress + ":3306/firmware_db",
             "manufacturer_user", "password"
         );
         try(PreparedStatement stmt = connection.prepareStatement("SELECT * FROM firmware_updates WHERE version > ? ORDER BY version DESC LIMIT 1")) {
@@ -163,13 +163,15 @@ public class Main {
     public static void main(String[] args) throws Exception {
         
         int port;
+        String databaseAddress;
         new File(Paths.get(manufacturerFirmwarePath).toString()).mkdirs();
 
-        if (args.length == 1) {
+        if (args.length == 2) {
             port = Integer.parseInt(args[0]);
+            databaseAddress = args[1];
             //firmwareFilePath = args[1];             
         } else{
-            System.out.println("Usage: Manufacturer <serverPort>");
+            System.out.println("Usage: Manufacturer <serverPort> <databaseAddress>");
             return;
         }
 
@@ -200,7 +202,7 @@ public class Main {
                         
                         String latest_version = rcvdMessage(is);
 
-                        String queryResults[] = getLatestUpdateFromDB(latest_version);
+                        String queryResults[] = getLatestUpdateFromDB(latest_version, databaseAddress);
                         String update = queryResults[0];
                         if (update == null) {
                             sendMessage(os, "No update available");

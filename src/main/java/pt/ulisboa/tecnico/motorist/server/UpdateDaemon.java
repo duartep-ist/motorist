@@ -19,7 +19,8 @@ public class UpdateDaemon implements Runnable {
     private static String firmwareDirPath = "/firmware"; 
     private static final BufferedReader stdinReader = new BufferedReader(new InputStreamReader(System.in));
     
-    private final int port = 5001; // Port for SSL connections
+    private final int port = 5001; // Port for SSL connections (manufacturer)
+    private final String manufacturerHost = "localhost"; // Host for SSL connections (manufacturer)
 
     public UpdateDaemon(String databaseDirPath) {
         UpdateDaemon.databaseDirPath = databaseDirPath;
@@ -120,7 +121,7 @@ public class UpdateDaemon implements Runnable {
     public void startSecureConnection() throws ConnectException, Exception {
 
         SocketFactory factory = SSLSocketFactory.getDefault();
-        try (SSLSocket socket = (SSLSocket) factory.createSocket("localhost", port)) {
+        try (SSLSocket socket = (SSLSocket) factory.createSocket(manufacturerHost, port)) {
             socket.setEnabledCipherSuites(new String[] { "TLS_AES_128_GCM_SHA256" });
             socket.setEnabledProtocols(new String[] { "TLSv1.3" });
 
