@@ -89,10 +89,10 @@ public class SecureDocument {
 			byte[] computedHmac = mac.doFinal(encryptedDocument);
 
 			// debugging
-			if (Debug.ENABLED) {
-				System.out.println("SecureDocument.check(): Stored HMAC: " + bytesToHex(hmac));
-				System.out.println("SecureDocument.check(): Computed HMAC: " + bytesToHex(computedHmac));
-			}
+			// if (Debug.ENABLED) {
+			// 	System.out.println("SecureDocument.check(): Stored HMAC: " + bytesToHex(hmac));
+			// 	System.out.println("SecureDocument.check(): Computed HMAC: " + bytesToHex(computedHmac));
+			// }
 
 			return Arrays.equals(hmac, computedHmac);
 		} catch (NoSuchAlgorithmException e) {

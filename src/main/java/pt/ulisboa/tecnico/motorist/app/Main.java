@@ -20,6 +20,8 @@ import pt.ulisboa.tecnico.motorist.common.JSONStreamReader;
 import pt.ulisboa.tecnico.motorist.common.JSONStreamWriter;
 import pt.ulisboa.tecnico.motorist.common.UserKeyFile;
 
+// Usage: app <server address> <server TCP port> <key file path> <username> <password> <subcommand> <arguments>...
+
 public class Main {
 	private static final Base64.Encoder base64Encoder = Base64.getEncoder();
 	private static final Base64.Decoder base64Decoder = Base64.getDecoder();
@@ -32,8 +34,6 @@ public class Main {
 	}
 
 	public static void main(String[] args) throws Exception {
-		System.err.println("Usage: app <server address> <server TCP port> <key file path> <username> <password> <subcommand> <arguments>...");
-
 		String serverAddress = args.length > 0 ? args[0] : "localhost";
 		int serverPort = args.length > 1 ? Integer.parseInt(args[1]) : 5000;
 
@@ -48,6 +48,7 @@ public class Main {
 			System.out.println("Key file \"" + keyFilePath + "\" not found. The file will be created with a newly-generated key.");
 			userKey = UserKeyFile.generateKey();
 			keyFile.storeKey(userKey, password);
+			return;
 		}
 
 		while (true) {
