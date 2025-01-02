@@ -2,6 +2,10 @@
 
 echo "This script is part of the \"quick setup\" described in setup.md."
 
+echo "Installing packages..."
+sudo apt-get -y install iptables iptables-persistent
+sudo systemctl enable netfilter-persistent
+
 echo "Downloading dependencies and building the project... This might take a while."
 mvn -q verify
 

@@ -22,7 +22,7 @@ These instructions are based on the [virtual networking lab](https://github.com/
 1. Make sure it is connected to a NAT in the network settings.
 1. Boot up the VM.
 1. Copy the project folder to it.
-1. Run `bash setup/init.sh`.
+1. Run `bash setup/init.sh`. If prompted to save current iptables rules, select "No" on both prompts.
 1. Shutdown the VM.
 1. In the VM's network settings, attach the **first** the network adapter to the `sw-1` internal network with promiscuous mode set to "Allow VMs".
 1. Clone the VM 4 times and name the new VMs according to the above list, with the clone type set to "Linked clone" and the MAC address policy set to "Generate new MAC addresses for all network adapters".
@@ -98,4 +98,26 @@ Afterwards, copy `./manufacturer_public.pem` to the car's machine.
 
 1. Install MariaDB.
 2. Run `./setup_tables_db.sh`.
-<!-- TODO: mariadb-secure-installation -->
+
+
+### Firewall setup (optional)
+
+Each machine except for the **user's machine** exposes only one port:
+
+- The **car's machine** exposes port 5000 for the car server.
+- The **manufacturer's server machine** exposes port 5001 for the firmware updates server.
+- The **manufacturer's database machine** exposes port 3306 for MariaDB.
+
+Just run the following code on each of those machines, replacing `$PORT` by the appropriate port:
+
+```sh
+sudo apt-get -y install iptables iptables-persistent
+sudo systemctl enable netfilter-persistent
+sudo iptables -P INPUT DROP
+sudo iptables -A INPUT -p tcp --dport 22 -j ACCEPT # SSH
+sudo iptables -A INPUT -p tcp --dport $PORT -j ACCEPT # MariaDB
+sudo iptables -A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
+sudo netfilter-persistent save
+```
+
+If prompted to save current iptables rules, select "No" on both prompts. Then reboot.

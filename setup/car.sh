@@ -13,6 +13,14 @@ iface eth0 inet static
 EOF
 sudo systemctl enable NetworkManager
 
+# Setup the firewall
+echo "Setting up the firewall rules..."
+sudo iptables -P INPUT DROP
+sudo iptables -A INPUT -p tcp --dport 22 -j ACCEPT # SSH
+sudo iptables -A INPUT -p tcp --dport 5000 -j ACCEPT # Car server
+sudo iptables -A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
+sudo netfilter-persistent save
+
 echo
 echo "Rebooting..."
 sudo systemctl reboot

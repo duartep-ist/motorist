@@ -18,6 +18,16 @@ sudo systemctl enable mariadb
 sudo systemctl start mariadb
 
 . ./setup/man_db_tables.sh
+
+# Setup the firewall
+echo
+echo "Setting up the firewall rules..."
+sudo iptables -P INPUT DROP
+sudo iptables -A INPUT -p tcp --dport 22 -j ACCEPT # SSH
+sudo iptables -A INPUT -p tcp --dport 3306 -j ACCEPT # MariaDB
+sudo iptables -A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
+sudo netfilter-persistent save
+
 sleep 5
 
 echo
