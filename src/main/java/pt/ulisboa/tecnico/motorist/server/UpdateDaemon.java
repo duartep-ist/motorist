@@ -1,14 +1,11 @@
 package pt.ulisboa.tecnico.motorist.server;
 
 import java.io.*;
-
-import java.net.Socket;
+import java.net.ConnectException;
 import java.nio.file.Files;
-
-import javax.net.ServerSocketFactory;
-import javax.net.ssl.SSLServerSocket;
-import javax.net.ssl.SSLServerSocketFactory;
-
+import javax.net.SocketFactory;
+import javax.net.ssl.SSLSocket;
+import javax.net.ssl.SSLSocketFactory;
 import java.security.KeyFactory;
 import java.security.Signature;
 import java.security.spec.X509EncodedKeySpec;
@@ -20,6 +17,7 @@ public class UpdateDaemon implements Runnable {
 
     private static String databaseDirPath;
     private static String firmwareDirPath = "/firmware"; 
+    private static final BufferedReader stdinReader = new BufferedReader(new InputStreamReader(System.in));
     
     private final int port = 5001; // Port for SSL connections
 
@@ -30,91 +28,150 @@ public class UpdateDaemon implements Runnable {
         System.setProperty("javax.net.ssl.keyStorePassword", "changeme");
         System.setProperty("javax.net.ssl.trustStore", "servertruststore.jks");
         System.setProperty("javax.net.ssl.trustStorePassword", "changeme");
+
+        
     }
+
+    private static String prompt(String promptText) throws IOException {
+		System.out.print(promptText);
+		return stdinReader.readLine();
+	}
 
     @Override
     public void run() {
-        try {
-            startSecureServer();
-        } catch (Exception e) {
-            System.err.println("Failed to start UpdateDaemon: " + e.getMessage());
-            e.printStackTrace();
+        
+        while(true){
+            String[] arguments;
+            try {
+                String input = prompt("car_updates> ");
+                arguments = input.split(" ");
+                switch (arguments[0]) {
+                    case "check":
+                        try {
+                            startSecureConnection();
+                        }catch (ConnectException ce){
+                            System.out.println("Manufacturer Server unreachable. Please try again later.");
+                        } catch (Exception e) {
+                            System.err.println("StartSecureConnection error: " + e.getMessage());
+                            e.printStackTrace();
+                        }
+                        break;
+                    case "help":
+                        System.out.println(
+                            "Available commands:\n" +
+                            "  help\n" +
+                            "  check\n"
+                        );
+                        break;
+                    default:
+                        break;
+                }
+               
+            } catch (IOException e) {
+                System.out.println("Error reading input: " + e.getMessage());
+                e.printStackTrace();
+                return;
+            }
+            
+            
         }
     }
 
-    public void startSecureServer() throws Exception {
+    public static String getLatestUpdateVersion(){
+        File firmwareDir = new File(databaseDirPath + firmwareDirPath);
+        if (!firmwareDir.exists() || !firmwareDir.isDirectory()) {
+            return "0.0.0";
+        }
 
-        ServerSocketFactory factory = SSLServerSocketFactory.getDefault();
-        while (true) {
-            try (SSLServerSocket listener = (SSLServerSocket) factory.createServerSocket(port)) {
-                listener.setNeedClientAuth(true);
-                listener.setEnabledCipherSuites(new String[] { "TLS_AES_128_GCM_SHA256" });
-                listener.setEnabledProtocols(new String[] { "TLSv1.3" });
-                System.out.println("Waiting for Updates on port " + port );
-                String message = "";
-                InputStream is = null;
-                OutputStream os = null;
-                try (Socket socket = listener.accept()) {
-                    try {
-                        is = new BufferedInputStream(socket.getInputStream());
-                        os = new BufferedOutputStream(socket.getOutputStream());
-                        byte[] data = new byte[2048];
-                        int len = is.read(data);
+        File[] directories = firmwareDir.listFiles(File::isDirectory);
+        if (directories == null || directories.length == 0) {
+            return "0.0.0";
+        }
 
-                        message = new String(data, 0, len);
-                        System.out.printf("server received %d bytes: %s%n", len, message);
-                        
-
-                        String firmwareName = rcvdMessage(is);
-                        if (firmwareName.equals("No update available")) {
-                            System.out.println(firmwareName);
-                            continue;
-                        }
-                        System.out.println("Firmware name received: " + firmwareName);
-                        String firmware = rcvdMessage(is);
-                        System.out.println("Firmware received: " + firmware);
-                        String signature = rcvdMessage(is);
-                        System.out.println("Signature received: " + signature);
-                        
-                        PublicKey publicKey = loadPublicKey("manufacturer_public.pem");
-                        //System.out.println("Public key loaded: " + publicKey);
-                        if(!verifySignature(firmware, signature, publicKey)) {
-                            System.out.println("Invalid signature. Firmware update rejected.");
-                            continue;
-                        } 
-                        System.out.println("Signature verified. Firmware update accepted.");
-                        // save the firmware to a file and also the signature
-                        File firmwareDir = new File(databaseDirPath + firmwareDirPath + "/" + firmwareName);
-                        if (!firmwareDir.exists()) {
-                            firmwareDir.mkdirs();
-                        }
-
-                        File firmwareFile = new File(firmwareDir, firmwareName + ".bin");
-                        try (FileOutputStream fos = new FileOutputStream(firmwareFile)) {
-                            fos.write(firmware.getBytes());
-                        }
-
-                        File signatureFile = new File(firmwareDir, "signature.sig");
-                        try (FileOutputStream fos = new FileOutputStream(signatureFile)) {
-                            fos.write(signature.getBytes());
-                        }
-                        
-                    } catch (IOException i) {
-                        System.out.println(i);
-                        return;
-                    }
-                    try {
-                        is.close();
-                        os.close();
-                        socket.close();
-                    } catch (IOException i) {
-                        System.out.println(i);
-                        return;
-                    }
+        String latestVersion = "";
+        for (File dir : directories) {
+            String dirName = dir.getName();
+            int underscoreIndex = dirName.lastIndexOf('_');
+            if (underscoreIndex != -1) {
+                String version = dirName.substring(underscoreIndex + 1);
+                if (version.compareTo(latestVersion) > 0) {
+                    latestVersion = version;
                 }
             }
         }
+
+        return latestVersion.isEmpty() ? "No updates available" : latestVersion;
     }
+
+    public void startSecureConnection() throws ConnectException, Exception {
+
+    
+        SocketFactory factory = SSLSocketFactory.getDefault();
+        try (SSLSocket socket = (SSLSocket) factory.createSocket("localhost", port)) {
+            socket.setEnabledCipherSuites(new String[] { "TLS_AES_128_GCM_SHA256" });
+            socket.setEnabledProtocols(new String[] { "TLSv1.3" });
+
+
+            OutputStream os = new BufferedOutputStream(socket.getOutputStream());
+            InputStream is = new BufferedInputStream(socket.getInputStream());
+            
+
+            rcvdMessage(is);
+            // carro manda a sua versao mais recente
+            String version = getLatestUpdateVersion();
+            System.out.println("Sending latest version: " + version);
+            sendMessage(os, version);
+
+            
+            String firmwareName = rcvdMessage(is);
+            if (firmwareName.equals("No update available")) {
+                return;
+            }
+           
+
+            String firmware_data = rcvdMessage(is);
+            
+            String signature = rcvdMessage(is);
+            
+            
+            PublicKey publicKey = loadPublicKey("manufacturer_public.pem");
+            //System.out.println("Public key loaded: " + publicKey);
+            if(!verifySignature(firmware_data, signature, publicKey)) {
+                System.out.println("Invalid signature. Firmware update rejected.");
+                return;
+            } 
+            System.out.println("Signature verified. Firmware update accepted.");
+            // save the firmware to a file and also the signature
+            File firmwareDir = new File(databaseDirPath + firmwareDirPath + "/" + firmwareName);
+            if (!firmwareDir.exists()) {
+                firmwareDir.mkdirs();
+            }
+
+            File firmwareFile = new File(firmwareDir, firmwareName + ".bin");
+            try (FileOutputStream fos = new FileOutputStream(firmwareFile)) {
+                fos.write(firmware_data.getBytes());
+            }
+
+            File signatureFile = new File(firmwareDir, "signature.sig");
+            try (FileOutputStream fos = new FileOutputStream(signatureFile)) {
+                fos.write(signature.getBytes());
+            }catch (IOException i) {
+                System.out.println(i);
+                return;
+            }
+
+            try {
+                is.close();
+                os.close();
+                socket.close();
+            } catch (IOException i) {
+                System.out.println(i);
+                return;
+            }
+                
+        }   
+    }
+    
 
 
     // Load the public key from PEM file
@@ -154,12 +211,17 @@ public class UpdateDaemon implements Runnable {
         return signatureBytes;
     }
 
-    
+    private static void sendMessage(OutputStream os, String message) throws IOException {
+        os.write(message.getBytes());
+        os.flush();
+        System.out.printf("Sent: %s%n", message);
+    }
+
     private static String rcvdMessage(InputStream is) throws IOException {
         byte[] data = new byte[2048];
         int len = is.read(data);
         String msg = new String(data, 0, len);
-        System.out.printf("Manufacturer received %d bytes: %s%n", len, msg);
+        System.out.printf("Received %d bytes: %s%n", len, msg);
         return msg;
     } 
 
@@ -168,7 +230,7 @@ public class UpdateDaemon implements Runnable {
         databaseDirPath = args.length > 0 ? args[0] : "./server-db";
         UpdateDaemon daemon = new UpdateDaemon(databaseDirPath);
         try {
-            daemon.startSecureServer();
+            daemon.startSecureConnection();
         } catch (Exception e) {
             System.err.println("Failed to start UpdateDaemon: " + e.getMessage());
             e.printStackTrace();
