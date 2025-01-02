@@ -8,8 +8,8 @@ In a real-world scenario, it is recommended to use a topology with a DMZ, which 
 
 - The **user's machine**, connected to subnet 1 (192.168.1.100).
 - The **car's machine**, connected to subnet 1 (192.168.1.1).
-- The **manufacturer server machine**, connected to subnets 1 (192.168.1.2) and 2 (192.168.2.1).
-- The **manufacturer database machine**, connected to subnet 2 (192.168.2.2).
+- The **manufacturer's server machine**, connected to subnets 1 (192.168.1.2) and 2 (192.168.2.1).
+- The **manufacturer's database machine**, connected to subnet 2 (192.168.2.2).
 
 In this configuration, subnet 1 represents the Internet and subnet 2 represents the manufacturer's internal network.
 
@@ -25,10 +25,16 @@ These instructions are based on the [virtual networking lab](https://github.com/
 1. Run `bash setup/init.sh`.
 1. Shutdown the VM.
 1. In the VM's network settings, attach the **first** the network adapter to the `sw-1` internal network with promiscuous mode set to "Allow VMs".
-1. Clone the VM 3 times for a total of 4 VMs (see above) and name them accordingly, with the clone type set to "Linked clone" and the MAC address policy set to "Generate new MAC addresses for all network adapters".
-1. In the **manufacturer server machine**'s network settings, attach the **second** network adapter to the `sw-2` internal network with promiscuous mode set to "Allow VMs".
-1. In the **manufacturer database machine**'s network settings, change the **first** network adapted, attaching it to the `sw-2` internal network instead of `sw-1`.
-<!-- TODO: Unfinished -->
+1. Clone the VM 4 times and name the new VMs according to the above list, with the clone type set to "Linked clone" and the MAC address policy set to "Generate new MAC addresses for all network adapters".
+1. In the **manufacturer's server machine**'s network settings, attach the **second** network adapter to the `sw-2` internal network with promiscuous mode set to "Allow VMs".
+1. In the **manufacturer's database machine**'s network settings, change the **first** network adapted, attaching it to the `sw-2` internal network instead of `sw-1`.
+1. Shutdown the original VM. These instructions will no longer refer the original VM but it might be helpful in case something goes wrong with the rest of the setup.
+1. Boot all of the new VMs.
+1. In all of the new VMs, `cd` into the project directory.
+1. Run `bash setup/user.sh` in the **user's machine**. This will reboot the VM.
+1. Run `bash setup/car.sh` in the **car's machine**. This will reboot the VM.
+1. Run `bash setup/man_server.sh` in the **manufacturer's server machine**. This will reboot the VM.
+1. Run `bash setup/man_db.sh` in the **manufacturer's database machine**. This will reboot the VM.
 
 ## Manual setup
 
@@ -78,7 +84,7 @@ keytool -import -trustcacerts -file manufacturer.pem -keypass changeme -storepas
 
 This key pair is used to guarantee the integrity of the updates.
 
-To generate the key pair, run the following commands in the project directory in the manufacturer server machine:
+To generate the key pair, run the following commands in the project directory in the manufacturer's server machine:
 
 ```sh
 openssl genpkey -algorithm RSA -out manufacturer_private.pem -pkeyopt rsa_keygen_bits:2048

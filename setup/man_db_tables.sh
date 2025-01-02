@@ -5,7 +5,7 @@
 DB_NAME="firmware_db"
 DB_USER="manufacturer_user"
 DB_PASSWORD="password"
-IP="127.0.0.1"
+IP="192.168.2.1"
 TABLE_NAME="firmware_updates"
 
 
@@ -67,4 +67,3 @@ echo "MariaDB setup complete."
 echo "Database: $DB_NAME"
 echo "User: $DB_USER"
 echo "Password: $DB_PASSWORD"
-echo "Replace the IP ($IP) with the actual manufacturer server IP when known."

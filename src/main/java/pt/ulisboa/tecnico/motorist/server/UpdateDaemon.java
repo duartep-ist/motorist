@@ -23,7 +23,7 @@ public class UpdateDaemon implements Runnable {
     private static final BufferedReader stdinReader = new BufferedReader(new InputStreamReader(System.in));
     
     private final int port = 5001; // Port for SSL connections (manufacturer)
-    private final String manufacturerHost = "localhost"; // Host for SSL connections (manufacturer)
+    private final String manufacturerHost = "192.168.1.2"; // Host for SSL connections (manufacturer)
 
     public UpdateDaemon(String databaseDirPath) {
         UpdateDaemon.databaseDirPath = databaseDirPath;
