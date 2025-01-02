@@ -17,7 +17,7 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
-
+import java.sql.SQLException;
 import java.util.Base64;
 
 
@@ -125,11 +125,12 @@ public class Main {
      * @return the update and the version
      * @throws Exception
      */
-    public static String[] getLatestUpdateFromDB(String version , String databaseAddress) throws Exception {
+    public static String[] getLatestUpdateFromDB(String version , String databaseAddress) throws SQLException, Exception {
         Connection connection = DriverManager.getConnection(
             "jdbc:mariadb://" + databaseAddress + ":3306/firmware_db",
             "manufacturer_user", "password"
         );
+        
         try(PreparedStatement stmt = connection.prepareStatement("SELECT * FROM firmware_updates WHERE version > ? ORDER BY version DESC LIMIT 1")) {
             stmt.setString(1, version);
             ResultSet rs = stmt.executeQuery();
@@ -224,10 +225,13 @@ public class Main {
                             System.out.println("Failed to send firmware and signature" + e.getMessage());
                             e.printStackTrace();
                         }
-                    } catch (IOException i) {
+                    }catch (IOException i) {
                         System.out.println(i);
                         return;
-                    }
+                    }catch (SQLException e) {
+                        System.out.println("Failed to get latest update from DB: " + e.getMessage());
+                        e.printStackTrace();
+                    } 
                     try {
                         is.close();
                         os.close();

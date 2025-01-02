@@ -2,11 +2,14 @@ package pt.ulisboa.tecnico.motorist.server;
 
 import java.io.*;
 import java.net.ConnectException;
+import java.net.SocketException;
 import java.nio.file.Files;
 import javax.net.SocketFactory;
 import javax.net.ssl.SSLSocket;
 import javax.net.ssl.SSLSocketFactory;
 import java.security.KeyFactory;
+import java.security.KeyManagementException;
+import java.security.NoSuchAlgorithmException;
 import java.security.Signature;
 import java.security.spec.X509EncodedKeySpec;
 import java.security.PublicKey;
@@ -56,6 +59,12 @@ public class UpdateDaemon implements Runnable {
                             startSecureConnection();
                         }catch (ConnectException ce){
                             System.out.println("Manufacturer Server unreachable. Please try again later.");
+                        }catch(SocketException se){
+                            System.out.println("Socket error. Check truststores configuration.");
+                        }catch(KeyManagementException ke){
+                            System.out.println("Key Management error. Check truststores configuration.");
+                        }catch ( NoSuchAlgorithmException ne) {
+                            System.out.println("Algorithm to be used in TLS not found. Check truststores configuration ");
                         } catch (Exception e) {
                             System.err.println("StartSecureConnection error: " + e.getMessage());
                             e.printStackTrace();
@@ -118,7 +127,7 @@ public class UpdateDaemon implements Runnable {
      * @throws ConnectException
      * @throws Exception
      */
-    public void startSecureConnection() throws ConnectException, Exception {
+    public void startSecureConnection() throws ConnectException,NoSuchAlgorithmException,KeyManagementException,SocketException, Exception {
 
         SocketFactory factory = SSLSocketFactory.getDefault();
         try (SSLSocket socket = (SSLSocket) factory.createSocket(manufacturerHost, port)) {

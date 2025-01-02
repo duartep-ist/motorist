@@ -8,7 +8,7 @@ systemctl status mysql
     sudo systemctl status mariadb
 - Currently running on port: 3306 (default)
 
-## Configure security settings (disallow remote access)
+## Configure security settings (disallow remote access to root)
     sudo mariadb-secure-installation
 
 ## Log into MariaDB:
