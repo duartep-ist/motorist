@@ -21,7 +21,7 @@ sudo systemctl enable NetworkManager
 # Setup the firewall
 echo "Setting up the firewall rules..."
 sudo iptables -P INPUT DROP
-sudo iptables -A INPUT -p tcp --dport 22 -j ACCEPT # SSH
+sudo iptables -A INPUT -p tcp --dport 22 -j ACCEPT # SSH (optional)
 sudo iptables -A INPUT -p tcp --dport 5001 -j ACCEPT # Firmware update server
 sudo iptables -A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
 sudo netfilter-persistent save

@@ -23,7 +23,7 @@ sudo systemctl start mariadb
 echo
 echo "Setting up the firewall rules..."
 sudo iptables -P INPUT DROP
-sudo iptables -A INPUT -p tcp --dport 22 -j ACCEPT # SSH
+sudo iptables -A INPUT -p tcp --dport 22 -j ACCEPT # SSH (optional)
 sudo iptables -A INPUT -p tcp --dport 3306 -j ACCEPT # MariaDB
 sudo iptables -A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
 sudo netfilter-persistent save

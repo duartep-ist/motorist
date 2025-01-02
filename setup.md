@@ -1,6 +1,6 @@
 # Setup instructions
 
-## Virtual machine setup
+## Quick setup for testing in VMs
 
 All components are designed to work with any network topology and IP addresses, as long as the app can connect to the car server and the car's server can connect to the manufacturer server. This includes running all programs in the same machine. It is also possible to have more than one user machine and more than one car's machine.
 
@@ -12,9 +12,6 @@ In a real-world scenario, it is recommended to use a topology with a DMZ, which 
 - The **manufacturer's database machine**, connected to subnet 2 (192.168.2.2).
 
 In this configuration, subnet 1 represents the Internet and subnet 2 represents the manufacturer's internal network.
-
-
-## Quick setup for testing in VMs
 
 These instructions are based on the [virtual networking lab](https://github.com/tecnico-sec/Virtual-Networking).
 
@@ -35,6 +32,13 @@ These instructions are based on the [virtual networking lab](https://github.com/
 1. Run `bash setup/car.sh` in the **car's machine**. This will reboot the VM.
 1. Run `bash setup/man_server.sh` in the **manufacturer's server machine**. This will reboot the VM.
 1. Run `bash setup/man_db.sh` in the **manufacturer's database machine**. This will reboot the VM.
+
+To run the components:
+1. `cd` into the project directory in all 4 VMs.
+1. In the **manufacturer's server machine**, run `sh run manufacturer 5001 192.168.2.2`.
+1. In the **car's machine**, run `sh run server`.
+1. In the **user's machine**, run `ssh -N -L localhost:5000:localhost:5000 kali@192.168.1.1` in a separate terminal. Write `kali` as the password.
+1. In the **user's machine**, run `sh run app` in a separate terminal.
 
 ## Manual setup
 
@@ -102,22 +106,44 @@ Afterwards, copy `./manufacturer_public.pem` to the car's machine.
 
 ### Firewall setup (optional)
 
-Each machine except for the **user's machine** exposes only one port:
-
-- The **car's machine** exposes port 5000 for the car server.
-- The **manufacturer's server machine** exposes port 5001 for the firmware updates server.
-- The **manufacturer's database machine** exposes port 3306 for MariaDB.
-
 Just run the following code on each of those machines, replacing `$PORT` by the appropriate port:
 
-```sh
-sudo apt-get -y install iptables iptables-persistent
-sudo systemctl enable netfilter-persistent
-sudo iptables -P INPUT DROP
-sudo iptables -A INPUT -p tcp --dport 22 -j ACCEPT # SSH
-sudo iptables -A INPUT -p tcp --dport $PORT -j ACCEPT # MariaDB
-sudo iptables -A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
-sudo netfilter-persistent save
-```
+
+**car's machine**
+**manufacturer's server machine**
+
+- For the **car's machine**, run:
+  ```sh
+  sudo apt-get -y install iptables iptables-persistent
+  sudo systemctl enable netfilter-persistent
+
+  sudo iptables -P INPUT DROP
+  sudo iptables -A INPUT -p tcp --dport 22 -j ACCEPT # SSH
+  sudo iptables -A INPUT -i lo -p tcp --dport 5000 -j ACCEPT # Car server (only accessible via the loopback interface, for SSH tunneling)
+  sudo iptables -A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
+  sudo netfilter-persistent save
+  ```
+- For the **manufacturer's server machine**, run:
+  ```sh
+  sudo apt-get -y install iptables iptables-persistent
+  sudo systemctl enable netfilter-persistent
+
+  sudo iptables -P INPUT DROP
+  sudo iptables -A INPUT -p tcp --dport 22 -j ACCEPT # SSH (optional)
+  sudo iptables -A INPUT -p tcp --dport 5001 -j ACCEPT # Firmware update server
+  sudo iptables -A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
+  sudo netfilter-persistent save
+  ```
+- For the **manufacturer's database machine**, run:
+  ```sh
+  sudo apt-get -y install iptables iptables-persistent
+  sudo systemctl enable netfilter-persistent
+
+  sudo iptables -P INPUT DROP
+  sudo iptables -A INPUT -p tcp --dport 22 -j ACCEPT # SSH (optional)
+  sudo iptables -A INPUT -p tcp --dport 3306 -j ACCEPT # MariaDB
+  sudo iptables -A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
+  sudo netfilter-persistent save
+  ```
 
 If prompted to save current iptables rules, select "No" on both prompts. Then reboot.
