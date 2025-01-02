@@ -70,11 +70,15 @@ public class UpdateDaemon implements Runnable {
                             e.printStackTrace();
                         }
                         break;
+                    case "verify_updates":
+                        verifyUpdates();
+                        break;
                     case "help":
                         System.out.println(
                             "Available commands:\n" +
                             "  help\n" +
-                            "  get_updates\n"
+                            "  get_updates\n" +
+                            "  verify_updates\n"
                         );
                         break;
                     default:
@@ -90,6 +94,47 @@ public class UpdateDaemon implements Runnable {
             
         }
     }
+
+    private void verifyUpdates() {
+        File firmwareDir = new File(databaseDirPath + firmwareDirPath);
+        if (!firmwareDir.exists() || !firmwareDir.isDirectory()) {
+            System.out.println("No firmware directory found.");
+            return;
+        }
+
+        File[] directories = firmwareDir.listFiles(File::isDirectory);
+        if (directories == null || directories.length == 0) {
+            System.out.println("No firmware updates found.");
+            return;
+        }
+
+        for (File dir : directories) {
+            String dirName = dir.getName();
+            File firmwareFile = new File(dir, dirName + ".bin");
+            File signatureFile = new File(dir, "signature.sig");
+
+            if (!firmwareFile.exists() || !signatureFile.exists()) {
+                System.out.println(dirName + ": Missing firmware or signature file.");
+                continue;
+            }
+
+            try {
+                String firmwareData = new String(Files.readAllBytes(firmwareFile.toPath()));
+                String signatureData = new String(Files.readAllBytes(signatureFile.toPath()));
+                PublicKey publicKey = loadPublicKey("manufacturer_public.pem");
+
+                if (verifySignature(firmwareData, signatureData, publicKey)) {
+                    System.out.println(dirName + ": Signature verified successfully.");
+                } else {
+                    System.out.println(dirName + ": Signature verification failed.");
+                }
+            } catch (Exception e) {
+                System.out.println(dirName + ": Error verifying signature - " + e.getMessage());
+            }
+        }
+    }
+
+
 
 
     /**
