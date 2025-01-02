@@ -12,7 +12,7 @@ openssl x509 -in manufacturer.crt -out manufacturer.pem
 openssl pkcs12 -export -in server.crt -inkey server.key -out server.p12
 openssl pkcs12 -export -in manufacturer.crt -inkey manufacturer.key -out manufacturer.p12
 keytool -import -trustcacerts -file manufacturer.pem -keypass changeme -storepass changeme -keystore servertruststore.jks
-keytool -import -trustcacerts -file server.pem -keypass changeme -storepass changeme -keystore usertruststore.jks
+keytool -import -trustcacerts -file server.pem -keypass changeme -storepass changeme -keystore manufacturertruststore.jks
 
 Asym keys:
 openssl genpkey -algorithm RSA -out manufacturer_private.pem -pkeyopt rsa_keygen_bits:2048
