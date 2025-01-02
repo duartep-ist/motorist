@@ -1,20 +1,23 @@
 package pt.ulisboa.tecnico.motorist.manufacturer;
 
-import javax.net.SocketFactory;
-import javax.net.ssl.*;
+import java.net.Socket;
+import javax.net.ServerSocketFactory;
+import javax.net.ssl.SSLServerSocket;
+import javax.net.ssl.SSLServerSocketFactory;
+
 import java.io.*;
-import java.lang.reflect.Array;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.security.KeyFactory;
 import java.security.PrivateKey;
 import java.security.Signature;
 import java.security.spec.PKCS8EncodedKeySpec;
+
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
-import java.util.ArrayList;
+
 import java.util.Base64;
 
 
@@ -32,10 +35,12 @@ public class Main {
         Main.keystorePath = keystorePath;
         
 
-        System.setProperty("javax.net.ssl.keyStore", "user.p12");
+        System.setProperty("javax.net.ssl.keyStore", "manufacturer.p12");
         System.setProperty("javax.net.ssl.keyStorePassword", "changeme");
-        System.setProperty("javax.net.ssl.trustStore", "usertruststore.jks");
+        System.setProperty("javax.net.ssl.trustStore", "manufacturertruststore.jks");
         System.setProperty("javax.net.ssl.trustStorePassword", "changeme");
+
+        
     }
 
 
@@ -75,7 +80,6 @@ public class Main {
         return Files.readAllBytes(firmwareFile.toPath());
     }
 
-    
     /**
      * Sends a file over the socket
      */
@@ -108,25 +112,9 @@ public class Main {
         return msg;
     }
 
-    private static File createFirmwareUpdateFile(String firmwareName) {
-        
-        File firmwareFile = new File(manufacturerFirmwarePath + "/" + firmwareName);
-        if (!firmwareFile.exists()) {
-            try {
-            firmwareFile.createNewFile();
-            try (FileOutputStream fos = new FileOutputStream(firmwareFile)) {
-                fos.write("Initial firmware content".getBytes());
-            }
-            } catch (IOException e) {
-            System.out.println("Failed to create firmware file: " + e.getMessage());
-            e.printStackTrace();
-            return null;
-            }
-        }
-        return firmwareFile;
-    }
+   
 
-    public static String getLatestUpdateFromDB(String version) throws Exception {
+    public static String[] getLatestUpdateFromDB(String version) throws Exception {
         Connection connection = DriverManager.getConnection(
             "jdbc:mariadb://localhost:3306/firmware_db",
             "manufacturer_user", "password"
@@ -135,7 +123,9 @@ public class Main {
             stmt.setString(1, version);
             ResultSet rs = stmt.executeQuery();
             String update = null;
+            String version_update = null;
             while(rs.next()){
+                version_update = rs.getString("version");
                 System.out.println("Version: " + rs.getString("version"));
                 byte[] data = rs.getBytes("firmware_data");
                 update = new String(data);
@@ -143,12 +133,10 @@ public class Main {
                 System.out.println("Data: " + update);
             }
             connection.close(); 
-            System.out.println("closed connection");
             if(update == null){
-                System.out.println("No update available");
-                return null;
+                return new String[]{null,null};
             }
-            return update;
+            return new String[]{update,version_update};
         } catch (Exception e) {
             System.out.println("Failed to get latest update from DB: " + e.getMessage());
             e.printStackTrace();
@@ -175,54 +163,66 @@ public class Main {
         System.setProperty("javax.net.ssl.trustStore", "manufacturertruststore.jks");
         System.setProperty("javax.net.ssl.trustStorePassword", "changeme");
 
-        
 
-        SocketFactory factory = SSLSocketFactory.getDefault();
-        try (SSLSocket socket = (SSLSocket) factory.createSocket("localhost", port)) {
 
-            socket.setEnabledCipherSuites(new String[] { "TLS_AES_128_GCM_SHA256" });
-            socket.setEnabledProtocols(new String[] { "TLSv1.3" });
+        ServerSocketFactory factory = SSLServerSocketFactory.getDefault();
+        while (true) {
+            try (SSLServerSocket listener = (SSLServerSocket) factory.createServerSocket(port)) {
+                listener.setNeedClientAuth(true);
+                listener.setEnabledCipherSuites(new String[] { "TLS_AES_128_GCM_SHA256" });
+                listener.setEnabledProtocols(new String[] { "TLSv1.3" });
+                System.out.println("Waiting for connections on port " + port );
+                
+                InputStream is = null;
+                OutputStream os = null;
+                try (Socket socket = listener.accept()) {
+                    try {
 
-            OutputStream os = new BufferedOutputStream(socket.getOutputStream());
-            InputStream is = new BufferedInputStream(socket.getInputStream());
+                    os = new BufferedOutputStream(socket.getOutputStream());
+                    is = new BufferedInputStream(socket.getInputStream());
 
-            sendMessage(os, "This is a secure channel!");
+                    sendMessage(os, "This is a secure channel!");
 
-            //String firmwareName = "update_v1";
-            //File update = createFirmwareUpdateFile(firmwareName + ".bin");
-            //mudar para receber versao mais recente do carro
-            String update = getLatestUpdateFromDB("1.0.0");
-            if (update == null) {
-                sendMessage(os, "No update available");
-                return;
-            }
-            try {
-                //String signature = signFirmware(Files.readAllBytes(update.toPath()));
-                String signature = signFirmware(update.getBytes());
-                System.out.println("Firmware signed successfully.");
-                //change the firmware name 
-                sendMessage(os, "firmwareName");
-                System.out.println("Firmware name sent successfully.");
-                sendMessage(os, update);
-                System.out.println("Firmware sent successfully.");
-                sendMessage(os, signature);
-                System.out.println("Signature sent successfully.");
-            } catch (Exception e) {
-                System.out.println("Failed to send firmware and signature" + e.getMessage());
-                e.printStackTrace();
-            }
-            
-            // os.write("Exit".getBytes());
-            // os.flush();
+                    //mudar para receber versao mais recente do carro
+                    String latest_version = rcvdMessage(is);
 
-            try {
-                is.close();
-                os.close();
-                socket.close();
-            } catch (IOException i) {
-                System.out.println(i);
-                return;
+                    String queryResults[] = getLatestUpdateFromDB(latest_version);
+                    String update = queryResults[0];
+                    if (update == null) {
+                        sendMessage(os, "No update available");
+                        continue;
+                    }
+                    String version = queryResults[1]; 
+                    try {
+                        //String signature = signFirmware(Files.readAllBytes(update.toPath()));
+                        String signature = signFirmware(update.getBytes());
+                        System.out.println("Firmware signed successfully.");
+                        //change the firmware name 
+                        sendMessage(os, "firmware_" + version );
+                        System.out.println("Firmware name sent successfully.");
+                        sendMessage(os, update);
+                        System.out.println("Firmware sent successfully.");
+                        sendMessage(os, signature);
+                        System.out.println("Signature sent successfully.");
+                    } catch (Exception e) {
+                        System.out.println("Failed to send firmware and signature" + e.getMessage());
+                        e.printStackTrace();
+                    }
+                    } catch (IOException i) {
+                        System.out.println(i);
+                        return;
+                    }
+                    try {
+                        is.close();
+                        os.close();
+                        socket.close();
+                    } catch (IOException i) {
+                        System.out.println(i);
+                        return;
+                    }
+                }
             }
         }
+
     }
 }
