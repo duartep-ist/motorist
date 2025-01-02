@@ -4,10 +4,8 @@ import java.net.Socket;
 import javax.net.ServerSocketFactory;
 import javax.net.ssl.SSLServerSocket;
 import javax.net.ssl.SSLServerSocketFactory;
-
 import java.io.*;
 import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.security.KeyFactory;
 import java.security.PrivateKey;
 import java.security.Signature;
@@ -23,27 +21,9 @@ import java.util.Base64;
 
 public class Main {
 
-    private static String serverHost;
-    private static int    serverPort;
-    private static String keystorePath;
+    
     private static final String PRIVATE_KEY_PATH = "manufacturer_private.pem";
-    private static String manufacturerFirmwarePath = "./firmware";
-
-    public Main(String serverHost, int serverPort, String keystorePath, String keystorePassword) {
-        Main.serverHost = serverHost;
-        Main.serverPort = serverPort;
-        Main.keystorePath = keystorePath;
-        
-
-        System.setProperty("javax.net.ssl.keyStore", "manufacturer.p12");
-        System.setProperty("javax.net.ssl.keyStorePassword", "changeme");
-        System.setProperty("javax.net.ssl.trustStore", "manufacturertruststore.jks");
-        System.setProperty("javax.net.ssl.trustStorePassword", "changeme");
-
-        
-    }
-
-
+    
 
 
     /**
@@ -165,7 +145,7 @@ public class Main {
         
         int port;
         String databaseAddress;
-        new File(Paths.get(manufacturerFirmwarePath).toString()).mkdirs();
+        
 
         if (args.length == 2) {
             port = Integer.parseInt(args[0]);
