@@ -24,18 +24,22 @@ public class UpdateDaemon implements Runnable {
     public UpdateDaemon(String databaseDirPath) {
         UpdateDaemon.databaseDirPath = databaseDirPath;
 
-        System.setProperty("javax.net.ssl.keyStore", "server.p12");
+        System.setProperty("javax.net.ssl.keyStore", "daemon.p12");
         System.setProperty("javax.net.ssl.keyStorePassword", "changeme");
-        System.setProperty("javax.net.ssl.trustStore", "servertruststore.jks");
+        System.setProperty("javax.net.ssl.trustStore", "daemontruststore.jks");
         System.setProperty("javax.net.ssl.trustStorePassword", "changeme");
 
-        
+
     }
 
     private static String prompt(String promptText) throws IOException {
 		System.out.print(promptText);
 		return stdinReader.readLine();
 	}
+
+    /*
+     * The run method is the main loop of the UpdateDaemon. It reads commands from the user
+     */
 
     @Override
     public void run() {
@@ -46,7 +50,7 @@ public class UpdateDaemon implements Runnable {
                 String input = prompt("car_updates> ");
                 arguments = input.split(" ");
                 switch (arguments[0]) {
-                    case "check":
+                    case "get_updates":
                         try {
                             startSecureConnection();
                         }catch (ConnectException ce){
@@ -60,7 +64,7 @@ public class UpdateDaemon implements Runnable {
                         System.out.println(
                             "Available commands:\n" +
                             "  help\n" +
-                            "  check\n"
+                            "  get_updates\n"
                         );
                         break;
                     default:
@@ -77,6 +81,11 @@ public class UpdateDaemon implements Runnable {
         }
     }
 
+
+    /**
+     * Get the latest update version from the firmware directory
+     * @return the latest version
+     */
     public static String getLatestUpdateVersion(){
         File firmwareDir = new File(databaseDirPath + firmwareDirPath);
         if (!firmwareDir.exists() || !firmwareDir.isDirectory()) {
@@ -100,40 +109,38 @@ public class UpdateDaemon implements Runnable {
             }
         }
 
-        return latestVersion.isEmpty() ? "No updates available" : latestVersion;
+        return latestVersion.isEmpty() ? "0.0.0" : latestVersion;
     }
 
+    /**
+     * Establish a secure tls connection with the manufacturer updates server
+     * @throws ConnectException
+     * @throws Exception
+     */
     public void startSecureConnection() throws ConnectException, Exception {
 
-    
         SocketFactory factory = SSLSocketFactory.getDefault();
         try (SSLSocket socket = (SSLSocket) factory.createSocket("localhost", port)) {
             socket.setEnabledCipherSuites(new String[] { "TLS_AES_128_GCM_SHA256" });
             socket.setEnabledProtocols(new String[] { "TLSv1.3" });
 
-
             OutputStream os = new BufferedOutputStream(socket.getOutputStream());
             InputStream is = new BufferedInputStream(socket.getInputStream());
             
-
-            rcvdMessage(is);
-            // carro manda a sua versao mais recente
+            //gets and sends the latest version in the car
             String version = getLatestUpdateVersion();
             System.out.println("Sending latest version: " + version);
             sendMessage(os, version);
 
-            
+            // receives the firmware info along with the signature
             String firmwareName = rcvdMessage(is);
             if (firmwareName.equals("No update available")) {
                 return;
             }
-           
-
             String firmware_data = rcvdMessage(is);
-            
             String signature = rcvdMessage(is);
             
-            
+            // checks firmware signature using manufacturer public key
             PublicKey publicKey = loadPublicKey("manufacturer_public.pem");
             //System.out.println("Public key loaded: " + publicKey);
             if(!verifySignature(firmware_data, signature, publicKey)) {
@@ -141,6 +148,7 @@ public class UpdateDaemon implements Runnable {
                 return;
             } 
             System.out.println("Signature verified. Firmware update accepted.");
+            
             // save the firmware to a file and also the signature
             File firmwareDir = new File(databaseDirPath + firmwareDirPath + "/" + firmwareName);
             if (!firmwareDir.exists()) {
@@ -150,6 +158,9 @@ public class UpdateDaemon implements Runnable {
             File firmwareFile = new File(firmwareDir, firmwareName + ".bin");
             try (FileOutputStream fos = new FileOutputStream(firmwareFile)) {
                 fos.write(firmware_data.getBytes());
+            }catch (IOException i) {
+                System.out.println(i);
+                return;
             }
 
             File signatureFile = new File(firmwareDir, "signature.sig");
@@ -174,7 +185,12 @@ public class UpdateDaemon implements Runnable {
     
 
 
-    // Load the public key from PEM file
+    /**
+     * Load the public key from a file
+     * @param publicKeyPath
+     * @return the public key
+     * @throws Exception
+     */
     public static PublicKey loadPublicKey(String publicKeyPath) throws Exception {
         byte[] keyBytes = Files.readAllBytes(new File(publicKeyPath).toPath());
 
@@ -190,11 +206,17 @@ public class UpdateDaemon implements Runnable {
     }
 
     
-    // Verify the signature of the firmware using the public key
+    /**
+     * Verify the signature of the firmware with manufacturers public key
+     * @param firmwareString
+     * @param signatureString
+     * @param publicKey
+     * @return
+     * @throws Exception
+     */
     public static boolean verifySignature(String firmwareString, String signatureString, PublicKey publicKey) throws Exception {
          
         byte[] firmwareBytes = firmwareString.getBytes();
-        // Decode the signature string (base64) into bytes
         byte[] signatureBytes = Base64.getDecoder().decode(signatureString);
 
         Signature signature = Signature.getInstance("SHA256withRSA");
@@ -211,12 +233,24 @@ public class UpdateDaemon implements Runnable {
         return signatureBytes;
     }
 
+    /**
+     * Sends a message over the socket
+     * @param os
+     * @param message
+     * @throws IOException
+     */
     private static void sendMessage(OutputStream os, String message) throws IOException {
         os.write(message.getBytes());
         os.flush();
         System.out.printf("Sent: %s%n", message);
     }
 
+    /**
+     * Receives a message from the socket
+     * @param is
+     * @return
+     * @throws IOException
+     */
     private static String rcvdMessage(InputStream is) throws IOException {
         byte[] data = new byte[2048];
         int len = is.read(data);
@@ -226,14 +260,4 @@ public class UpdateDaemon implements Runnable {
     } 
 
 
-    public static void main(String[] args) {
-        databaseDirPath = args.length > 0 ? args[0] : "./server-db";
-        UpdateDaemon daemon = new UpdateDaemon(databaseDirPath);
-        try {
-            daemon.startSecureConnection();
-        } catch (Exception e) {
-            System.err.println("Failed to start UpdateDaemon: " + e.getMessage());
-            e.printStackTrace();
-        }
-    }
 }

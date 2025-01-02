@@ -46,7 +46,12 @@ public class Main {
 
 
 
-    // sign firmware
+    /**
+     * Sign the firmware with the private key
+     * @param firmwareData
+     * @return signature as a Base64 string
+     * @throws Exception
+     */
     public static String signFirmware(byte[] firmwareData ) throws Exception {
         // Load private key
         PrivateKey privateKey = loadPrivateKey();
@@ -60,7 +65,11 @@ public class Main {
         return Base64.getEncoder().encodeToString(digitalSignature);
     }
 
-    // Load the private key from PEM file
+    /**
+     * Load the private key from a file
+     * @return
+     * @throws Exception
+     */
     private static PrivateKey loadPrivateKey() throws Exception {
         byte[] keyBytes = Files.readAllBytes(new File(PRIVATE_KEY_PATH).toPath());
 
@@ -80,40 +89,42 @@ public class Main {
         return Files.readAllBytes(firmwareFile.toPath());
     }
 
+    
     /**
-     * Sends a file over the socket
+     * Send a message over the socket
+     * @param os
+     * @param message
+     * @throws IOException
      */
-    private static void sendFile(OutputStream os, File file) throws IOException {
-        try (FileInputStream fileInputStream = new FileInputStream(file)) {
-            byte[] buffer = new byte[1024];
-            int bytesRead;
-            while ((bytesRead = fileInputStream.read(buffer)) != -1) {
-                os.write(buffer, 0, bytesRead);
-            }
-            os.flush();
-            System.out.printf("Manufacturer sent file: %s%n", file.getName());
-        } catch(IOException e) {
-            System.out.println("Failed to send file: " + e.getMessage());
-            e.printStackTrace();
-        }
-    }
-
     private static void sendMessage(OutputStream os, String message) throws IOException {
         os.write(message.getBytes());
         os.flush();
-        System.out.printf("Manufacturer sent: %s%n", message);
+        System.out.printf("Sent: %s%n", message);
     }
 
+    /**
+     * Receive a message over the socker
+     * @param is
+     * @return
+     * @throws IOException
+     */
     private static String rcvdMessage(InputStream is) throws IOException {
         byte[] data = new byte[2048];
         int len = is.read(data);
         String msg = new String(data, 0, len);
-        System.out.printf("Manufacturer received %d bytes: %s%n", len, msg);
+        System.out.printf("Received %d bytes: %s%n", len, msg);
         return msg;
     }
 
    
 
+    /**
+     * Get the latest update from the database
+     * that the car does not have
+     * @param version
+     * @return the update and the version
+     * @throws Exception
+     */
     public static String[] getLatestUpdateFromDB(String version) throws Exception {
         Connection connection = DriverManager.getConnection(
             "jdbc:mariadb://localhost:3306/firmware_db",
@@ -144,7 +155,11 @@ public class Main {
         }
     }
 
-   
+   /**
+    * Main method for manufacturer update server
+    * @param args - server port
+    * @throws Exception
+    */
     public static void main(String[] args) throws Exception {
         
         int port;
@@ -178,36 +193,35 @@ public class Main {
                 try (Socket socket = listener.accept()) {
                     try {
 
-                    os = new BufferedOutputStream(socket.getOutputStream());
-                    is = new BufferedInputStream(socket.getInputStream());
+                        os = new BufferedOutputStream(socket.getOutputStream());
+                        is = new BufferedInputStream(socket.getInputStream());
 
-                    sendMessage(os, "This is a secure channel!");
 
-                    //mudar para receber versao mais recente do carro
-                    String latest_version = rcvdMessage(is);
+                        
+                        String latest_version = rcvdMessage(is);
 
-                    String queryResults[] = getLatestUpdateFromDB(latest_version);
-                    String update = queryResults[0];
-                    if (update == null) {
-                        sendMessage(os, "No update available");
-                        continue;
-                    }
-                    String version = queryResults[1]; 
-                    try {
-                        //String signature = signFirmware(Files.readAllBytes(update.toPath()));
-                        String signature = signFirmware(update.getBytes());
-                        System.out.println("Firmware signed successfully.");
-                        //change the firmware name 
-                        sendMessage(os, "firmware_" + version );
-                        System.out.println("Firmware name sent successfully.");
-                        sendMessage(os, update);
-                        System.out.println("Firmware sent successfully.");
-                        sendMessage(os, signature);
-                        System.out.println("Signature sent successfully.");
-                    } catch (Exception e) {
-                        System.out.println("Failed to send firmware and signature" + e.getMessage());
-                        e.printStackTrace();
-                    }
+                        String queryResults[] = getLatestUpdateFromDB(latest_version);
+                        String update = queryResults[0];
+                        if (update == null) {
+                            sendMessage(os, "No update available");
+                            continue;
+                        }
+                        String version = queryResults[1]; 
+                        try {
+                            //String signature = signFirmware(Files.readAllBytes(update.toPath()));
+                            String signature = signFirmware(update.getBytes());
+                            System.out.println("Firmware signed successfully.");
+                            //change the firmware name 
+                            sendMessage(os, "firmware_" + version );
+                            System.out.println("Firmware name sent successfully.");
+                            sendMessage(os, update);
+                            System.out.println("Firmware sent successfully.");
+                            sendMessage(os, signature);
+                            System.out.println("Signature sent successfully.");
+                        } catch (Exception e) {
+                            System.out.println("Failed to send firmware and signature" + e.getMessage());
+                            e.printStackTrace();
+                        }
                     } catch (IOException i) {
                         System.out.println(i);
                         return;
